@@ -10,6 +10,7 @@ agent:
   name: "TestAgent"
   data_dir: "{tmp}"
   db_path: "{tmp}/agent.db"
+  persona_dir: "{tmp}/persona"
 claude:
   binary: "echo"
   default_cwd: "{tmp}"

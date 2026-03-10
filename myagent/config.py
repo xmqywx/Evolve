@@ -8,6 +8,7 @@ class AgentSettings(BaseModel):
     name: str
     data_dir: str
     db_path: str
+    persona_dir: str = ""
 
 
 class ClaudeSettings(BaseModel):

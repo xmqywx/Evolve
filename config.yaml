@@ -2,6 +2,7 @@ agent:
   name: "MyAgent"
   data_dir: "/Users/ying/Documents/MyAgent"
   db_path: "/Users/ying/Documents/MyAgent/agent.db"
+  persona_dir: "/Users/ying/Documents/MyAgent/persona"
 
 claude:
   binary: "claude"
