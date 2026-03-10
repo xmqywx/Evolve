@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - MyAgent{% endblock %}
+{% block content %}
+<div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <div class="text-sm text-gray-400">Status</div>
+        <div class="text-2xl font-bold text-green-400 mt-1">Running</div>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <div class="text-sm text-gray-400">Remaining Today</div>
+        <div class="text-2xl font-bold text-blue-400 mt-1">{{ status.scheduler_remaining }}</div>
+    </div>
+    <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
+        <div class="text-sm text-gray-400">Total Tasks</div>
+        <div class="text-2xl font-bold text-purple-400 mt-1">{{ tasks | length }}</div>
+    </div>
+</div>
+
+<div class="mb-8">
+    <h2 class="text-lg font-semibold mb-4">Quick Submit</h2>
+    <form hx-post="/web/submit" hx-target="#submit-result" hx-swap="innerHTML" class="flex gap-3">
+        <input type="text" name="prompt" placeholder="Enter task..."
+               class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-gray-100 focus:border-blue-500 focus:outline-none">
+        <button type="submit" class="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">Submit</button>
+    </form>
+    <div id="submit-result" class="mt-2 text-sm"></div>
+</div>
+
+<div>
+    <h2 class="text-lg font-semibold mb-4">Recent Tasks</h2>
+    <div class="space-y-2">
+        {% for task in tasks[:10] %}
+        <a href="/tasks/{{ task.id }}" class="block bg-gray-800 rounded-lg p-4 border border-gray-700 hover:border-gray-500 transition">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    {% if task.status == "done" %}
+                    <span class="w-2 h-2 rounded-full bg-green-400"></span>
+                    {% elif task.status == "failed" %}
+                    <span class="w-2 h-2 rounded-full bg-red-400"></span>
+                    {% elif task.status == "running" %}
+                    <span class="w-2 h-2 rounded-full bg-blue-400 animate-pulse"></span>
+                    {% else %}
+                    <span class="w-2 h-2 rounded-full bg-gray-400"></span>
+                    {% endif %}
+                    <span class="text-gray-200">{{ task.prompt[:80] }}</span>
+                </div>
+                <span class="text-xs text-gray-500">{{ task.id[:12] }}</span>
+            </div>
+        </a>
+        {% endfor %}
+        {% if not tasks %}
+        <div class="text-gray-500 text-center py-8">No tasks yet</div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
