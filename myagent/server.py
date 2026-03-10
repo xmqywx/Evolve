@@ -11,7 +11,10 @@ from pydantic import BaseModel
 
 from myagent.config import load_config, AgentConfig
 from myagent.db import Database
+from myagent.doubao import DoubaoClient
+from myagent.embedding import EmbeddingStore
 from myagent.feishu import FeishuClient, build_task_card, parse_feishu_event
+from myagent.memory import MemoryManager
 from myagent.models import Task, TaskSource, TaskStatus
 from myagent.scheduler import Scheduler
 from myagent.ws_client import RelayClient
@@ -52,6 +55,12 @@ async def create_app(config_path: str) -> FastAPI:
     db = Database(config.agent.db_path)
     await db.init()
 
+    # Doubao + pgvector + memory
+    doubao_client = DoubaoClient(config.doubao)
+    embedding_store = EmbeddingStore(config.postgres)
+    await embedding_store.init()
+    memory_manager = MemoryManager(db, doubao_client, embedding_store)
+
     # Feishu client
     feishu_client = FeishuClient(config.feishu)
 
@@ -71,6 +80,12 @@ async def create_app(config_path: str) -> FastAPI:
             duration_seconds=duration,
         )
         await feishu_client.send_card(card)
+
+        # Summarize into memory (best-effort)
+        try:
+            await memory_manager.summarize_task(task_id)
+        except Exception:
+            logging.getLogger(__name__).exception("Failed to summarize task %s", task_id)
 
     scheduler = Scheduler(db, config.claude, config.scheduler, on_task_done=on_task_done)
 
@@ -96,6 +111,9 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.scheduler = scheduler
     app.state.feishu_client = feishu_client
     app.state.relay_client = relay_client
+    app.state.doubao_client = doubao_client
+    app.state.embedding_store = embedding_store
+    app.state.memory_manager = memory_manager
 
     # ------------------------------------------------------------------
     # Public routes
@@ -109,6 +127,8 @@ async def create_app(config_path: str) -> FastAPI:
             "scheduler_remaining": scheduler._rate_limiter.remaining,
             "feishu_enabled": config.feishu.enabled,
             "relay_enabled": config.relay.enabled,
+            "doubao_enabled": config.doubao.enabled,
+            "pgvector_enabled": config.postgres.enabled,
         }
 
     # ------------------------------------------------------------------
@@ -168,9 +188,14 @@ async def create_app(config_path: str) -> FastAPI:
         return logs
 
     @app.get("/api/memory/search", dependencies=[Depends(verify_auth)])
-    async def search_memories(q: str = Query(...)):
-        results = await db.search_memories(q)
+    async def search_memories(q: str = Query(...), limit: int = Query(10)):
+        results = await memory_manager.hybrid_search(q, limit=limit)
         return results
+
+    @app.get("/api/memory/context", dependencies=[Depends(verify_auth)])
+    async def get_memory_context(q: str = Query(...), limit: int = Query(5)):
+        context = await memory_manager.get_context_for_task(q, limit=limit)
+        return {"context": context}
 
     @app.get("/api/status", dependencies=[Depends(verify_auth)])
     async def get_status():
@@ -213,4 +238,6 @@ async def run_server(config_path: str) -> None:
             app.state.relay_client.stop()
             relay_task.cancel()
         await app.state.feishu_client.close()
+        await app.state.doubao_client.close()
+        await app.state.embedding_store.close()
         await app.state.db.close()

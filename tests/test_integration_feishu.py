@@ -26,6 +26,10 @@ feishu:
   enabled: false
 relay:
   enabled: false
+doubao:
+  enabled: false
+postgres:
+  enabled: false
 """.format(tmp=str(tmp_path)))
 
     app = await create_app(str(cfg))
@@ -37,7 +41,11 @@ relay:
         assert data["status"] == "ok"
         assert data["feishu_enabled"] is False
         assert data["relay_enabled"] is False
+        assert data["doubao_enabled"] is False
+        assert data["pgvector_enabled"] is False
     await app.state.feishu_client.close()
+    await app.state.doubao_client.close()
+    await app.state.embedding_store.close()
     await app.state.db.close()
 
 
@@ -65,10 +73,16 @@ feishu:
   enabled: true
 relay:
   enabled: false
+doubao:
+  enabled: false
+postgres:
+  enabled: false
 """.format(tmp=str(tmp_path)))
 
     app = await create_app(str(cfg))
     assert app.state.feishu_client is not None
     assert app.state.relay_client is not None
     await app.state.feishu_client.close()
+    await app.state.doubao_client.close()
+    await app.state.embedding_store.close()
     await app.state.db.close()
