@@ -22,6 +22,7 @@ from myagent.router import MessageRouter
 from myagent.web import router as web_router
 from myagent.ws_client import RelayClient
 
+logger = logging.getLogger(__name__)
 security = HTTPBearer(auto_error=False)
 
 
@@ -57,6 +58,12 @@ async def create_app(config_path: str) -> FastAPI:
     config = load_config(config_path)
     db = Database(config.agent.db_path)
     await db.init()
+
+    # Crash recovery: reset any RUNNING tasks to PENDING
+    running_tasks = await db.list_tasks(status=TaskStatus.RUNNING)
+    for t in running_tasks:
+        logger.info("Recovering stuck task: %s", t.id)
+        await db.update_task(t.id, status=TaskStatus.PENDING)
 
     # Doubao + pgvector + memory
     doubao_client = DoubaoClient(config.doubao)
