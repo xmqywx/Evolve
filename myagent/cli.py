@@ -9,7 +9,7 @@ import sys
 import httpx
 
 
-DEFAULT_BASE_URL = "http://127.0.0.1:9999"
+DEFAULT_BASE_URL = "http://127.0.0.1:8090"
 DEFAULT_SECRET = ""
 
 
