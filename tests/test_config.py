@@ -32,3 +32,34 @@ server:
 def test_load_config_missing_file():
     with pytest.raises(FileNotFoundError):
         load_config("/nonexistent/config.yaml")
+
+
+def test_config_with_feishu(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("""
+agent:
+  name: TestAgent
+  data_dir: /tmp
+  db_path: /tmp/agent.db
+claude:
+  binary: echo
+scheduler:
+  max_daily_calls: 10
+server:
+  port: 9999
+  secret: test
+feishu:
+  app_id: "cli_test_app"
+  app_secret: "cli_test_secret"
+  bot_webhook: "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+  chat_id: "oc_test123"
+relay:
+  url: "ws://localhost:9876/ws"
+  token: "relay_secret"
+""")
+    from myagent.config import load_config
+    config = load_config(str(cfg))
+    assert config.feishu.app_id == "cli_test_app"
+    assert config.feishu.bot_webhook == "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
+    assert config.relay.url == "ws://localhost:9876/ws"
+    assert config.relay.token == "relay_secret"

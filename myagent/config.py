@@ -28,11 +28,28 @@ class ServerSettings(BaseModel):
     secret: str = "change-me"
 
 
+class FeishuSettings(BaseModel):
+    app_id: str = ""
+    app_secret: str = ""
+    bot_webhook: str = ""
+    chat_id: str = ""
+    enabled: bool = True
+
+
+class RelaySettings(BaseModel):
+    url: str = "ws://localhost:9876/ws"
+    token: str = ""
+    reconnect_interval: int = 5
+    enabled: bool = True
+
+
 class AgentConfig(BaseModel):
     agent: AgentSettings
     claude: ClaudeSettings
     scheduler: SchedulerSettings
     server: ServerSettings
+    feishu: FeishuSettings = FeishuSettings()
+    relay: RelaySettings = RelaySettings()
 
 
 def load_config(path: str) -> AgentConfig:

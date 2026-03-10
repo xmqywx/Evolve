@@ -22,5 +22,9 @@ server:
   host: "127.0.0.1"
   port: 9999
   secret: "test"
+feishu:
+  enabled: false
+relay:
+  enabled: false
 """.format(tmp=str(tmp_path)))
     return str(cfg)

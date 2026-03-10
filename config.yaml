@@ -20,3 +20,16 @@ server:
   host: "0.0.0.0"
   port: 8090
   secret: "change-me-to-a-real-secret"
+
+feishu:
+  app_id: ""
+  app_secret: ""
+  bot_webhook: ""
+  chat_id: ""
+  enabled: false
+
+relay:
+  url: "ws://wdao.chat:9876/ws"
+  token: ""
+  reconnect_interval: 5
+  enabled: false
