@@ -43,6 +43,19 @@ class RelaySettings(BaseModel):
     enabled: bool = True
 
 
+class DoubaoSettings(BaseModel):
+    api_key: str = ""
+    base_url: str = "https://ark.cn-beijing.volces.com/api/v3"
+    chat_model: str = "doubao-seed-2-0-pro-260215"
+    embedding_model: str = "doubao-embedding-large-text-240915"
+    enabled: bool = True
+
+
+class PostgresSettings(BaseModel):
+    dsn: str = "postgresql://ying@localhost/myagent"
+    enabled: bool = True
+
+
 class AgentConfig(BaseModel):
     agent: AgentSettings
     claude: ClaudeSettings
@@ -50,6 +63,8 @@ class AgentConfig(BaseModel):
     server: ServerSettings
     feishu: FeishuSettings = FeishuSettings()
     relay: RelaySettings = RelaySettings()
+    doubao: DoubaoSettings = DoubaoSettings()
+    postgres: PostgresSettings = PostgresSettings()
 
 
 def load_config(path: str) -> AgentConfig:

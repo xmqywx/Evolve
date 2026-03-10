@@ -33,3 +33,14 @@ relay:
   token: ""
   reconnect_interval: 5
   enabled: false
+
+doubao:
+  api_key: ""
+  base_url: "https://ark.cn-beijing.volces.com/api/v3"
+  chat_model: "doubao-seed-2-0-pro-260215"
+  embedding_model: "doubao-embedding-large-text-240915"
+  enabled: false
+
+postgres:
+  dsn: "postgresql://ying@localhost/myagent"
+  enabled: false

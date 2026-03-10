@@ -63,3 +63,30 @@ relay:
     assert config.feishu.bot_webhook == "https://open.feishu.cn/open-apis/bot/v2/hook/xxx"
     assert config.relay.url == "ws://localhost:9876/ws"
     assert config.relay.token == "relay_secret"
+
+
+def test_config_with_doubao_postgres(tmp_path):
+    cfg = tmp_path / "config.yaml"
+    cfg.write_text("""
+agent:
+  name: TestAgent
+  data_dir: /tmp
+  db_path: /tmp/agent.db
+claude:
+  binary: echo
+scheduler:
+  max_daily_calls: 10
+server:
+  port: 9999
+  secret: test
+doubao:
+  api_key: "test_key"
+  embedding_model: "test-embed"
+postgres:
+  dsn: "postgresql://test@localhost/testdb"
+""")
+    from myagent.config import load_config
+    config = load_config(str(cfg))
+    assert config.doubao.api_key == "test_key"
+    assert config.doubao.embedding_model == "test-embed"
+    assert config.postgres.dsn == "postgresql://test@localhost/testdb"

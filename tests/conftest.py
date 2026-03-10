@@ -26,5 +26,9 @@ feishu:
   enabled: false
 relay:
   enabled: false
+doubao:
+  enabled: false
+postgres:
+  enabled: false
 """.format(tmp=str(tmp_path)))
     return str(cfg)
