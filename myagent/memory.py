@@ -44,19 +44,13 @@ class MemoryManager:
                 "entities": [],
             }
 
-        await self._db.create_memory(
+        memory_id = await self._db.create_memory(
             task_id=task_id,
             summary=structured.get("summary", ""),
             key_decisions=json.dumps(structured.get("key_decisions", [])),
             files_changed=json.dumps(structured.get("files_changed", [])),
             tags=json.dumps(structured.get("tags", [])),
         )
-
-        # Get the memory_id of what we just inserted
-        memories = await self._db.search_memories(
-            structured.get("summary", "")[:50], limit=1
-        )
-        memory_id = memories[0]["id"] if memories else 0
 
         # Store embedding in pgvector
         summary_text = structured.get("summary", "")
@@ -72,13 +66,12 @@ class MemoryManager:
 
         # Extract entities
         for entity in structured.get("entities", []):
-            await self._db._conn.execute(
-                """INSERT INTO entities (name, type, content, first_seen, last_updated, source_task_ids)
-                   VALUES (?, ?, ?, datetime('now'), datetime('now'), ?)""",
-                (entity.get("name"), entity.get("type"), entity.get("content"),
-                 json.dumps([task_id])),
+            await self._db.create_entity(
+                name=entity.get("name", ""),
+                entity_type=entity.get("type"),
+                content=entity.get("content"),
+                task_id=task_id,
             )
-            await self._db._conn.commit()
 
         return structured
 

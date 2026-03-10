@@ -1,51 +1,57 @@
 {% extends "base.html" %}
-{% block title %}Task {{ task.id[:12] }} - MyAgent{% endblock %}
+{% block title %}任务详情 - MyAgent{% endblock %}
 {% block content %}
 <div class="mb-6">
-    <a href="/tasks" class="text-blue-400 hover:text-blue-300 text-sm">&larr; Back to Tasks</a>
+    <a href="/tasks" class="text-blue-400 hover:text-blue-300 text-sm">&larr; 返回任务列表</a>
 </div>
 
 <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-6">
     <div class="flex items-center gap-3 mb-4">
         {% if task.status == "done" %}
-        <span class="px-2 py-1 rounded text-sm font-medium bg-green-900 text-green-300">Done</span>
+        <span class="px-2 py-1 rounded text-sm font-medium bg-green-900/60 text-green-300">已完成</span>
         {% elif task.status == "failed" %}
-        <span class="px-2 py-1 rounded text-sm font-medium bg-red-900 text-red-300">Failed</span>
+        <span class="px-2 py-1 rounded text-sm font-medium bg-red-900/60 text-red-300">失败</span>
         {% elif task.status == "running" %}
-        <span class="px-2 py-1 rounded text-sm font-medium bg-blue-900 text-blue-300">Running</span>
+        <span class="px-2 py-1 rounded text-sm font-medium bg-blue-900/60 text-blue-300">执行中</span>
         {% else %}
-        <span class="px-2 py-1 rounded text-sm font-medium bg-gray-700 text-gray-300">{{ task.status }}</span>
+        <span class="px-2 py-1 rounded text-sm font-medium bg-gray-700 text-gray-300">等待中</span>
         {% endif %}
-        <span class="text-gray-500 text-sm">{{ task.source }}</span>
+        {% if task.source == "feishu" %}
+        <span class="text-gray-500 text-sm">来自飞书</span>
+        {% elif task.source == "web" %}
+        <span class="text-gray-500 text-sm">来自网页</span>
+        {% elif task.source == "cli" %}
+        <span class="text-gray-500 text-sm">来自命令行</span>
+        {% else %}
+        <span class="text-gray-500 text-sm">来源: {{ task.source }}</span>
+        {% endif %}
     </div>
-    <h1 class="text-xl font-semibold mb-2">{{ task.prompt }}</h1>
-    <div class="text-sm text-gray-500">
-        <span>ID: {{ task.id }}</span>
-        <span class="mx-2">|</span>
-        <span>Created: {{ task.created_at }}</span>
+    <h1 class="text-xl font-semibold mb-3">{{ task.prompt }}</h1>
+    <div class="text-sm text-gray-500 space-y-1">
+        <div>ID: <span class="text-gray-400">{{ task.id }}</span></div>
+        <div>创建时间: <span class="text-gray-400">{{ task.created_at[:19] }}</span>
         {% if task.started_at %}
-        <span class="mx-2">|</span>
-        <span>Started: {{ task.started_at }}</span>
+         | 开始: <span class="text-gray-400">{{ task.started_at[:19] }}</span>
         {% endif %}
         {% if task.finished_at %}
-        <span class="mx-2">|</span>
-        <span>Finished: {{ task.finished_at }}</span>
+         | 结束: <span class="text-gray-400">{{ task.finished_at[:19] }}</span>
         {% endif %}
+        </div>
     </div>
 </div>
 
 {% if task.result_summary %}
 <div class="bg-gray-800 rounded-lg p-6 border border-gray-700 mb-6">
-    <h2 class="text-lg font-semibold mb-3">Result</h2>
+    <h2 class="text-lg font-semibold mb-3">执行结果</h2>
     <pre class="text-sm text-gray-300 whitespace-pre-wrap">{{ task.result_summary }}</pre>
 </div>
 {% endif %}
 
 <div class="bg-gray-800 rounded-lg p-6 border border-gray-700">
-    <h2 class="text-lg font-semibold mb-3">Logs ({{ logs | length }})</h2>
+    <h2 class="text-lg font-semibold mb-3">执行日志 ({{ logs | length }} 条)</h2>
     <div class="space-y-1 max-h-96 overflow-y-auto">
         {% for log in logs %}
-        <div class="text-sm font-mono py-1 border-b border-gray-700">
+        <div class="text-sm font-mono py-1 border-b border-gray-700/50">
             <span class="text-gray-500">{{ log.timestamp[:19] }}</span>
             <span class="text-blue-400 mx-2">[{{ log.event_type }}]</span>
             {% if log.tool_name %}
@@ -55,7 +61,7 @@
         </div>
         {% endfor %}
         {% if not logs %}
-        <div class="text-gray-500">No logs yet</div>
+        <div class="text-gray-500">暂无日志</div>
         {% endif %}
     </div>
 </div>

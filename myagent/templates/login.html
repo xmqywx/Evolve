@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}登录 - MyAgent{% endblock %}
+{% block content %}
+<div class="max-w-sm mx-auto mt-20">
+    <h1 class="text-2xl font-bold mb-2 text-center">MyAgent</h1>
+    <p class="text-gray-500 text-center mb-6 text-sm">你的 AI 分身控制台</p>
+    {% if error %}
+    <div class="bg-red-900/50 text-red-300 border border-red-700 rounded-lg px-4 py-2 mb-4 text-sm">{{ error }}</div>
+    {% endif %}
+    <form method="post" action="/login" class="space-y-4">
+        <input type="password" name="secret" placeholder="输入访问密钥..."
+               class="w-full bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 text-gray-100 focus:border-blue-500 focus:outline-none">
+        <button type="submit" class="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium">登录</button>
+    </form>
+</div>
+{% endblock %}

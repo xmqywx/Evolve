@@ -1,0 +1,26 @@
+{% if results %}
+<div class="space-y-3">
+    {% for r in results %}
+    <div class="bg-gray-800 rounded-lg p-4 border border-gray-700">
+        <div class="flex items-center justify-between mb-2">
+            <span class="text-sm text-gray-500">相关度: {{ "%.2f"|format(r.score|default(0)) }}</span>
+            {% if r.task_id %}
+            <a href="/tasks/{{ r.task_id }}" class="text-blue-400 hover:text-blue-300 text-sm">查看任务</a>
+            {% endif %}
+        </div>
+        <p class="text-gray-200">{{ r.content or r.summary or '' }}</p>
+        {% if r.tags %}
+        <div class="mt-2 flex gap-1">
+            {% for tag in r.tags if tag %}
+            <span class="px-2 py-0.5 rounded text-xs bg-gray-700 text-gray-400">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% elif query %}
+<div class="text-gray-500 text-center py-12">未找到与 "{{ query }}" 相关的记忆</div>
+{% else %}
+<div class="text-gray-500 text-center py-12">输入关键词开始搜索</div>
+{% endif %}

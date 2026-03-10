@@ -52,7 +52,12 @@ class RelayClient:
         while self._running:
             try:
                 logger.info("Connecting to relay: %s", self._settings.url)
-                async with websockets.connect(self._settings.url) as ws:
+                async with websockets.connect(
+                    self._settings.url,
+                    ping_interval=20,
+                    ping_timeout=10,
+                    close_timeout=5,
+                ) as ws:
                     self._ws = ws
                     await ws.send(self._build_auth_message())
                     logger.info("Connected to relay, auth sent")
@@ -60,10 +65,16 @@ class RelayClient:
                     async for raw_message in ws:
                         if not self._running:
                             break
-                        await self._handle_message(raw_message)
+                        try:
+                            await self._handle_message(raw_message)
+                        except Exception:
+                            logger.exception("Error handling relay message")
 
             except websockets.ConnectionClosed:
                 logger.warning("Relay connection closed, reconnecting...")
+            except asyncio.CancelledError:
+                logger.info("Relay client cancelled")
+                break
             except Exception:
                 logger.exception("Relay connection error")
             finally:

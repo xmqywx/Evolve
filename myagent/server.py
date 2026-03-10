@@ -18,7 +18,7 @@ from myagent.feishu import FeishuClient, build_task_card, parse_feishu_event
 from myagent.memory import MemoryManager
 from myagent.models import Task, TaskSource, TaskStatus
 from myagent.scheduler import Scheduler
-from myagent.router import MessageRouter
+from myagent.router import MessageRouter, SYSTEM, CHAT, SEARCH
 from myagent.web import router as web_router
 from myagent.ws_client import RelayClient
 
@@ -109,19 +109,77 @@ async def create_app(config_path: str) -> FastAPI:
         memory_manager=memory_manager,
     )
 
+    # Message router
+    message_router = MessageRouter(doubao_client)
+
     # Relay client (WebSocket to wdao.chat)
     async def on_relay_message(msg: dict) -> None:
         """Handle incoming message from relay (Feishu events)."""
         parsed = parse_feishu_event(msg)
         if parsed is None:
             return
-        # Create task from Feishu message
+
+        content = parsed["content"]
+        chat_id = parsed.get("chat_id", "")
+
+        # Route the message
+        classification = await message_router.classify(content)
+        category = classification["category"]
+
+        if category == SYSTEM:
+            detail = classification.get("detail", "")
+            reply = await _handle_system_command(detail, db, scheduler)
+            if chat_id:
+                await feishu_client.send_message_to_chat(chat_id, reply)
+            return
+
+        if category == CHAT:
+            reply = await doubao_client.chat(
+                f"你是 MyYing，Ying 的 AI 分身助手。简洁友好地回复：\n\n{content}",
+                max_tokens=500,
+                temperature=0.7,
+            )
+            if reply and chat_id:
+                await feishu_client.send_message_to_chat(chat_id, reply)
+            elif not reply and chat_id:
+                await feishu_client.send_message_to_chat(chat_id, "收到，但我暂时无法回复（豆包未启用）")
+            return
+
+        if category == SEARCH:
+            if chat_id:
+                await feishu_client.send_message_to_chat(chat_id, f"收到，正在处理：{content[:50]}...")
+
+        # Create task
         task = Task(
-            prompt=parsed["content"],
+            prompt=content,
             source=TaskSource.FEISHU,
+            complexity=category,
         )
         await db.create_task(task)
-        logging.getLogger(__name__).info("Task created from Feishu: %s", task.id)
+        logger.info("Task created from Feishu: %s (category=%s)", task.id, category)
+
+        if chat_id and category != SEARCH:
+            await feishu_client.send_message_to_chat(
+                chat_id, f"任务已创建，排队执行中...\nID: {task.id[:20]}"
+            )
+
+    async def _handle_system_command(detail: str, db: Database, scheduler: Scheduler) -> str:
+        if detail == "status":
+            remaining = scheduler._rate_limiter.remaining
+            running = scheduler._running
+            return f"运行状态: {'运行中' if running else '已停止'}\n今日剩余额度: {remaining}"
+        elif detail == "list_tasks":
+            tasks = await db.list_tasks(limit=5)
+            if not tasks:
+                return "暂无任务"
+            lines = []
+            status_map = {"done": "完成", "failed": "失败", "running": "执行中", "pending": "等待中"}
+            for t in tasks:
+                s = status_map.get(t.status.value, t.status.value)
+                lines.append(f"[{s}] {t.prompt[:40]}")
+            return "最近任务:\n" + "\n".join(lines)
+        else:
+            return f"未知命令: {detail}"
 
     relay_client = RelayClient(config.relay, on_message=on_relay_message)
 
@@ -135,9 +193,6 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.embedding_store = embedding_store
     app.state.memory_manager = memory_manager
     app.state.context_manager = context_manager
-
-    # Message router
-    message_router = MessageRouter(doubao_client)
     app.state.message_router = message_router
 
     # Mount web routes
@@ -170,11 +225,16 @@ async def create_app(config_path: str) -> FastAPI:
         except ValueError:
             source = TaskSource.WEB
 
+        # Route message to determine complexity
+        classification = await message_router.classify(body.prompt)
+        complexity = classification["category"]
+
         task = Task(
             prompt=body.prompt,
             cwd=body.cwd,
             priority=body.priority,
             source=source,
+            complexity=complexity,
         )
         await db.create_task(task)
         return task.model_dump(mode="json")
@@ -245,10 +305,20 @@ async def run_server(config_path: str) -> None:
 
     loop_task = asyncio.create_task(app.state.scheduler.run_loop())
 
-    # Start relay client if enabled
+    # Start relay client if enabled (wrapped to prevent crash)
     relay_task = None
     if config.relay.enabled:
-        relay_task = asyncio.create_task(app.state.relay_client.run())
+        async def _safe_relay():
+            while True:
+                try:
+                    await app.state.relay_client.run()
+                    break  # Normal exit
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("Relay client crashed, restarting in 5s...")
+                    await asyncio.sleep(5)
+        relay_task = asyncio.create_task(_safe_relay())
 
     server_config = uvicorn.Config(
         app,

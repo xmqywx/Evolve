@@ -96,6 +96,11 @@ class Database:
         rows = await cursor.fetchall()
         return [_row_to_task(r) for r in rows]
 
+    async def count_tasks(self) -> int:
+        cursor = await self._conn.execute("SELECT COUNT(*) FROM tasks")
+        row = await cursor.fetchone()
+        return row[0] if row else 0
+
     async def get_next_pending(self) -> Task | None:
         cursor = await self._conn.execute(
             """SELECT * FROM tasks
@@ -159,8 +164,8 @@ class Database:
         files_changed: str | None = None,
         tags: str | None = None,
         project: str | None = None,
-    ) -> None:
-        await self._conn.execute(
+    ) -> int:
+        cursor = await self._conn.execute(
             """INSERT INTO memories
                (task_id, created_at, summary, key_decisions, files_changed, tags, project)
                VALUES (?,?,?,?,?,?,?)""",
@@ -175,23 +180,51 @@ class Database:
             ),
         )
         await self._conn.commit()
+        return cursor.lastrowid
 
     async def search_memories(self, query: str, limit: int = 10) -> list[dict]:
+        safe_query = _escape_fts5(query)
+        if not safe_query:
+            return []
         cursor = await self._conn.execute(
             """SELECT m.*
                FROM memory_search ms
                JOIN memories m ON m.id = ms.rowid
                WHERE memory_search MATCH ?
                LIMIT ?""",
-            (query, limit),
+            (safe_query, limit),
         )
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
+
+    async def create_entity(
+        self,
+        name: str,
+        entity_type: str | None = None,
+        content: str | None = None,
+        task_id: str | None = None,
+    ) -> int:
+        cursor = await self._conn.execute(
+            """INSERT INTO entities (name, type, content, first_seen, last_updated, source_task_ids)
+               VALUES (?, ?, ?, datetime('now'), datetime('now'), ?)""",
+            (name, entity_type, content, f'["{task_id}"]' if task_id else "[]"),
+        )
+        await self._conn.commit()
+        return cursor.lastrowid
 
 
 # ------------------------------------------------------------------
 # helpers
 # ------------------------------------------------------------------
+
+def _escape_fts5(query: str) -> str:
+    """Escape special FTS5 characters to prevent query syntax errors."""
+    # Quote each token to avoid FTS5 syntax issues with special chars
+    tokens = query.strip().split()
+    if not tokens:
+        return ""
+    return " ".join(f'"{t}"' for t in tokens)
+
 
 def _row_to_task(row: aiosqlite.Row) -> Task:
     d = dict(row)

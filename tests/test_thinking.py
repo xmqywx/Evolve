@@ -11,6 +11,7 @@ from thinking.proactive import ProactiveThinking
 def disabled_doubao():
     doubao = AsyncMock()
     doubao._settings = DoubaoSettings(enabled=False)
+    doubao.is_enabled = False
     return doubao
 
 

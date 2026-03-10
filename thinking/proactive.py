@@ -27,7 +27,7 @@ class ProactiveThinking:
 
     async def daily_review(self) -> str | None:
         """Morning thinking: review yesterday, find patterns, generate insights."""
-        if not self._doubao._settings.enabled or not self._doubao._settings.api_key:
+        if not self._doubao.is_enabled:
             return None
 
         # Get recent tasks
@@ -46,6 +46,7 @@ class ProactiveThinking:
             f"- {m.get('content', '')[:200]}" for m in memories
         )
 
+        tasks_text = "\n".join(task_summaries[:10])
         prompt = (
             '你是MyAgent，Ying的AI分身。进行每日晨间回顾。\n'
             '分析最近的任务和记忆，找出:\n'
@@ -54,21 +55,14 @@ class ProactiveThinking:
             '3. 值得关注的洞察\n'
             '4. 对Ying的建议\n\n'
             '用简洁中文回答，重点突出有价值的发现。\n\n'
-            f'最近任务:\n{"chr(10)".join(task_summaries[:10])}\n\n'
+            f'最近任务:\n{tasks_text}\n\n'
             f'记忆:\n{memory_text}'
         )
 
         try:
-            client = await self._doubao._get_client()
-            resp = await client.post("/chat/completions", json={
-                "model": self._doubao._settings.chat_model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 800,
-                "temperature": 0.7,
-            })
-            resp.raise_for_status()
-            data = resp.json()
-            insight = data["choices"][0]["message"]["content"]
+            insight = await self._doubao.chat(prompt, max_tokens=800, temperature=0.7)
+            if not insight:
+                return None
 
             # Send to Feishu
             await self._feishu.send_text(f"🌅 MyAgent 晨间回顾\n\n{insight}")

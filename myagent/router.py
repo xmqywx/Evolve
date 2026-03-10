@@ -7,6 +7,7 @@ from typing import Any
 
 from myagent.doubao import DoubaoClient
 
+
 logger = logging.getLogger(__name__)
 
 # Message categories
@@ -19,8 +20,8 @@ SEARCH = "search"        # Search request -> DuckDuckGo + AI
 
 # System command patterns
 SYSTEM_PATTERNS = {
-    r"^(状态|status)$": "status",
-    r"^(任务列表|tasks|list)$": "list_tasks",
+    r"(查看|查询)?(状态|运行情况|status)": "status",
+    r"(查看|有哪些|列出)?(任务|任务列表|tasks|list)": "list_tasks",
     r"^(取消|cancel)\s*(.*)$": "cancel",
     r"^(重试|retry)\s*(.*)$": "retry",
 }
@@ -69,7 +70,7 @@ class MessageRouter:
             return {"category": SYSTEM, "detail": detail, "method": "rules"}
 
         # Try Doubao classification
-        if self._doubao._settings.enabled and self._doubao._settings.api_key:
+        if self._doubao.is_enabled:
             try:
                 result = await self._classify_with_doubao(text)
                 if result:
@@ -92,19 +93,35 @@ class MessageRouter:
             '- search: 需要搜索互联网的问题\n\n'
             f'消息: {text[:500]}'
         )
-        import httpx
-        client = await self._doubao._get_client()
-        resp = await client.post("/chat/completions", json={
-            "model": self._doubao._settings.chat_model,
-            "messages": [{"role": "user", "content": prompt}],
-            "max_tokens": 20,
-            "temperature": 0.1,
-        })
-        resp.raise_for_status()
-        data = resp.json()
-        content = data["choices"][0]["message"]["content"].strip().lower()
+        content = await self._doubao.chat(prompt, max_tokens=20, temperature=0.1)
+        if content is None:
+            return None
+        content = content.strip().lower()
 
         valid = {SIMPLE, COMPLEX, SPECIALIZED, SYSTEM, CHAT, SEARCH}
         if content in valid:
-            return {"category": content, "detail": None, "method": "doubao"}
+            detail = None
+            if content == SYSTEM:
+                # Extract command detail via rules
+                _, detail = self.classify_by_rules(text)
+                if detail is None:
+                    detail = await self._extract_system_detail(text)
+            return {"category": content, "detail": detail, "method": "doubao"}
+        return None
+
+    async def _extract_system_detail(self, text: str) -> str | None:
+        """Use Doubao to extract system command detail."""
+        prompt = (
+            '用户发送了一条系统指令。判断属于以下哪种，只返回英文标识：\n'
+            '- status: 查看状态/运行情况\n'
+            '- list_tasks: 查看任务/任务列表\n'
+            '- cancel: 取消任务\n'
+            '- retry: 重试任务\n\n'
+            f'消息: {text[:200]}'
+        )
+        content = await self._doubao.chat(prompt, max_tokens=20, temperature=0.1)
+        if content:
+            content = content.strip().lower()
+            if content in ("status", "list_tasks", "cancel", "retry"):
+                return content
         return None

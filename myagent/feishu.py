@@ -16,6 +16,7 @@ class FeishuClient:
     def __init__(self, settings: FeishuSettings) -> None:
         self._settings = settings
         self._http: httpx.AsyncClient | None = None
+        self._tenant_token: str | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         if self._http is None or self._http.is_closed:
@@ -25,6 +26,85 @@ class FeishuClient:
     async def close(self) -> None:
         if self._http and not self._http.is_closed:
             await self._http.aclose()
+
+    # ------------------------------------------------------------------
+    # Tenant token (for API calls)
+    # ------------------------------------------------------------------
+
+    async def _get_tenant_token(self) -> str | None:
+        if not self._settings.app_id or not self._settings.app_secret:
+            return None
+        try:
+            client = await self._get_client()
+            resp = await client.post(
+                "https://open.feishu.cn/open-apis/auth/v3/tenant_access_token/internal",
+                json={
+                    "app_id": self._settings.app_id,
+                    "app_secret": self._settings.app_secret,
+                },
+            )
+            data = resp.json()
+            if data.get("code") == 0:
+                self._tenant_token = data["tenant_access_token"]
+                return self._tenant_token
+            logger.error("Failed to get tenant token: %s", data)
+        except Exception:
+            logger.exception("Failed to get tenant token")
+        return None
+
+    async def _ensure_token(self) -> str | None:
+        if self._tenant_token:
+            return self._tenant_token
+        return await self._get_tenant_token()
+
+    # ------------------------------------------------------------------
+    # Send message via API (reply to chat)
+    # ------------------------------------------------------------------
+
+    async def send_message_to_chat(self, chat_id: str, text: str) -> bool:
+        """Send a text message to a specific chat via Feishu API."""
+        token = await self._ensure_token()
+        if not token:
+            logger.warning("No tenant token, falling back to webhook")
+            return await self.send_text(text)
+        try:
+            client = await self._get_client()
+            resp = await client.post(
+                "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+                headers={"Authorization": f"Bearer {token}"},
+                json={
+                    "receive_id": chat_id,
+                    "msg_type": "text",
+                    "content": json.dumps({"text": text}),
+                },
+            )
+            data = resp.json()
+            if data.get("code") == 0:
+                return True
+            # Token expired, refresh and retry
+            if data.get("code") == 99991663:
+                self._tenant_token = None
+                token = await self._get_tenant_token()
+                if token:
+                    resp = await client.post(
+                        "https://open.feishu.cn/open-apis/im/v1/messages?receive_id_type=chat_id",
+                        headers={"Authorization": f"Bearer {token}"},
+                        json={
+                            "receive_id": chat_id,
+                            "msg_type": "text",
+                            "content": json.dumps({"text": text}),
+                        },
+                    )
+                    return resp.json().get("code") == 0
+            logger.error("Failed to send message: %s", data)
+            return False
+        except Exception:
+            logger.exception("Failed to send message to chat")
+            return False
+
+    # ------------------------------------------------------------------
+    # Webhook methods (notifications)
+    # ------------------------------------------------------------------
 
     def format_card_payload(self, card: dict) -> dict:
         return {"msg_type": "interactive", "card": card}
@@ -65,6 +145,7 @@ def build_task_card(
     duration_seconds: float | None = None,
 ) -> dict:
     color_map = {"done": "green", "failed": "red", "running": "blue", "pending": "grey"}
+    status_text = {"done": "已完成", "failed": "失败", "running": "执行中", "pending": "等待中"}
     status_emoji = {"done": "✅", "failed": "❌", "running": "🔄", "pending": "⏳"}
     template = color_map.get(status, "grey")
     emoji = status_emoji.get(status, "")
@@ -73,33 +154,33 @@ def build_task_card(
 
     elements.append({
         "tag": "div",
-        "text": {"tag": "lark_md", "content": f"**Task:** `{task_id}`"},
+        "text": {"tag": "lark_md", "content": f"**状态:** {status_text.get(status, status)}"},
+    })
+
+    elements.append({
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": f"**任务ID:** `{task_id}`"},
     })
 
     if summary:
         truncated = summary[:500]
         elements.append({
             "tag": "div",
-            "text": {"tag": "lark_md", "content": f"**Result:**\n{truncated}"},
+            "text": {"tag": "lark_md", "content": f"**执行结果:**\n{truncated}"},
         })
 
     if duration_seconds is not None:
         mins, secs = divmod(int(duration_seconds), 60)
-        time_str = f"{mins}m {secs}s" if mins else f"{secs}s"
+        time_str = f"{mins}分{secs}秒" if mins else f"{secs}秒"
         elements.append({
             "tag": "div",
-            "text": {"tag": "lark_md", "content": f"**Duration:** {time_str}"},
+            "text": {"tag": "lark_md", "content": f"**耗时:** {time_str}"},
         })
 
     elements.append({"tag": "hr"})
     elements.append({
-        "tag": "action",
-        "actions": [{
-            "tag": "button",
-            "text": {"tag": "plain_text", "content": "View Logs"},
-            "type": "primary",
-            "value": {"action": "view_logs", "task_id": task_id},
-        }],
+        "tag": "note",
+        "elements": [{"tag": "plain_text", "content": "MyAgent · 在 Dashboard 查看详细日志"}],
     })
 
     return {

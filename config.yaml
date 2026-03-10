@@ -23,24 +23,24 @@ server:
   secret: "change-me-to-a-real-secret"
 
 feishu:
-  app_id: ""
-  app_secret: ""
-  bot_webhook: ""
+  app_id: "cli_a93a96cec0f89cb5"
+  app_secret: "mrkTZT0FbKNHlMDNSKPkNfJ8MGbzeoqS"
+  bot_webhook: "https://open.feishu.cn/open-apis/bot/v2/hook/ce3c2191-fa10-4a7a-919d-88cdf11040d7"
   chat_id: ""
-  enabled: false
+  enabled: true
 
 relay:
-  url: "ws://wdao.chat:9876/ws"
-  token: ""
+  url: "wss://agent.wdao.chat/ws"
+  token: "f8004072d674c18b41e3d72728c9879c"
   reconnect_interval: 5
-  enabled: false
+  enabled: true
 
 doubao:
-  api_key: ""
+  api_key: "62f296be-c80f-4ec2-8bed-0854d4c35440"
   base_url: "https://ark.cn-beijing.volces.com/api/v3"
   chat_model: "doubao-seed-2-0-pro-260215"
   embedding_model: "doubao-embedding-large-text-240915"
-  enabled: false
+  enabled: true
 
 postgres:
   dsn: "postgresql://ying@localhost/myagent"

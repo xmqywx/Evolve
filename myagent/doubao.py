@@ -17,6 +17,10 @@ class DoubaoClient:
         self._settings = settings
         self._http: httpx.AsyncClient | None = None
 
+    @property
+    def is_enabled(self) -> bool:
+        return bool(self._settings.enabled and self._settings.api_key)
+
     async def _get_client(self) -> httpx.AsyncClient:
         if self._http is None or self._http.is_closed:
             self._http = httpx.AsyncClient(
@@ -31,7 +35,7 @@ class DoubaoClient:
             await self._http.aclose()
 
     async def get_embedding(self, text: str) -> list[float] | None:
-        if not self._settings.enabled or not self._settings.api_key:
+        if not self.is_enabled:
             return None
         try:
             client = await self._get_client()
@@ -52,7 +56,7 @@ class DoubaoClient:
             return None
 
     async def summarize(self, text: str, max_tokens: int = 500) -> dict[str, Any] | None:
-        if not self._settings.enabled or not self._settings.api_key:
+        if not self.is_enabled:
             return None
         prompt = (
             '请将以下任务执行日志总结为结构化记忆。返回JSON格式:\n'
@@ -86,4 +90,23 @@ class DoubaoClient:
             return json.loads(content.strip())
         except Exception:
             logger.exception("Failed to summarize with Doubao")
+            return None
+
+    async def chat(self, prompt: str, max_tokens: int = 800, temperature: float = 0.7) -> str | None:
+        """General chat completion via Doubao."""
+        if not self.is_enabled:
+            return None
+        try:
+            client = await self._get_client()
+            resp = await client.post("/chat/completions", json={
+                "model": self._settings.chat_model,
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": max_tokens,
+                "temperature": temperature,
+            })
+            resp.raise_for_status()
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        except Exception:
+            logger.exception("Doubao chat failed")
             return None
