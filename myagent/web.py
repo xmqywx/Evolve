@@ -22,8 +22,7 @@ async def dashboard(request: Request):
     status = {
         "scheduler_remaining": scheduler._rate_limiter.remaining,
     }
-    return templates.TemplateResponse("index.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "index.html", {
         "tasks": [t.model_dump() for t in tasks],
         "status": status,
     })
@@ -39,8 +38,7 @@ async def task_list(request: Request, status: str | None = Query(None)):
         except ValueError:
             pass
     tasks = await db.list_tasks(limit=100, status=task_status)
-    return templates.TemplateResponse("tasks.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "tasks.html", {
         "tasks": [t.model_dump() for t in tasks],
         "filter_status": status,
     })
@@ -53,8 +51,7 @@ async def task_detail(request: Request, task_id: str):
     if task is None:
         return HTMLResponse("<h1>Task not found</h1>", status_code=404)
     logs = await db.get_task_logs(task_id)
-    return templates.TemplateResponse("task_detail.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "task_detail.html", {
         "task": task.model_dump(),
         "logs": logs,
     })
@@ -66,8 +63,7 @@ async def memory_page(request: Request, q: str | None = Query(None)):
     if q:
         memory_manager = request.app.state.memory_manager
         results = await memory_manager.hybrid_search(q, limit=20)
-    return templates.TemplateResponse("memory.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "memory.html", {
         "results": results,
         "query": q,
     })
@@ -80,8 +76,7 @@ async def memory_search_htmx(request: Request, q: str = Query("")):
     if q:
         memory_manager = request.app.state.memory_manager
         results = await memory_manager.hybrid_search(q, limit=20)
-    return templates.TemplateResponse("memory.html", {
-        "request": request,
+    return templates.TemplateResponse(request, "memory.html", {
         "results": results,
         "query": q,
     })
