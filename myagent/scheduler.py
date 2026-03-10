@@ -6,8 +6,10 @@ from datetime import datetime, date, timezone
 from typing import Callable, Awaitable
 
 from myagent.config import ClaudeSettings, SchedulerSettings
+from myagent.context_manager import ContextManager
 from myagent.db import Database
 from myagent.executor import Executor
+from myagent.memory import MemoryManager
 from myagent.models import TaskStatus
 
 
@@ -56,6 +58,8 @@ class Scheduler:
         claude_settings: ClaudeSettings,
         scheduler_settings: SchedulerSettings,
         on_task_done: Callable[[str, str, str | None], Awaitable[None]] | None = None,
+        context_manager: ContextManager | None = None,
+        memory_manager: MemoryManager | None = None,
     ) -> None:
         self._db = db
         self._executor = Executor(claude_settings)
@@ -65,6 +69,8 @@ class Scheduler:
         )
         self._running = False
         self._on_task_done = on_task_done
+        self._context_manager = context_manager
+        self._memory_manager = memory_manager
 
     async def process_one(self) -> bool:
         if not self._rate_limiter.can_execute():
@@ -80,12 +86,27 @@ class Scheduler:
 
         self._rate_limiter.record_call()
 
+        # Build enriched prompt with persona + memories
+        enriched_prompt = task.prompt
+        if self._context_manager:
+            memory_context = ""
+            if self._memory_manager:
+                try:
+                    memory_context = await self._memory_manager.get_context_for_task(task.prompt)
+                except Exception:
+                    pass
+            enriched_prompt = self._context_manager.build_prompt(
+                user_prompt=task.prompt,
+                memory_context=memory_context,
+                complexity=task.complexity,
+            )
+
         # Execute and collect events
         contents: list[str] = []
         session_id: str | None = None
         failed = False
 
-        async for event in self._executor.execute(prompt=task.prompt, cwd=task.cwd):
+        async for event in self._executor.execute(prompt=enriched_prompt, cwd=task.cwd):
             event_type = event.get("type", "unknown")
 
             # Log the event

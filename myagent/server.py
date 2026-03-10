@@ -10,6 +10,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 
 from myagent.config import load_config, AgentConfig
+from myagent.context_manager import ContextManager
 from myagent.db import Database
 from myagent.doubao import DoubaoClient
 from myagent.embedding import EmbeddingStore
@@ -89,7 +90,17 @@ async def create_app(config_path: str) -> FastAPI:
         except Exception:
             logging.getLogger(__name__).exception("Failed to summarize task %s", task_id)
 
-    scheduler = Scheduler(db, config.claude, config.scheduler, on_task_done=on_task_done)
+    # Context manager
+    context_manager = ContextManager(
+        persona_dir=config.agent.persona_dir,
+    ) if config.agent.persona_dir else None
+
+    scheduler = Scheduler(
+        db, config.claude, config.scheduler,
+        on_task_done=on_task_done,
+        context_manager=context_manager,
+        memory_manager=memory_manager,
+    )
 
     # Relay client (WebSocket to wdao.chat)
     async def on_relay_message(msg: dict) -> None:
@@ -116,6 +127,7 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.doubao_client = doubao_client
     app.state.embedding_store = embedding_store
     app.state.memory_manager = memory_manager
+    app.state.context_manager = context_manager
 
     # Message router
     message_router = MessageRouter(doubao_client)

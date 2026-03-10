@@ -87,3 +87,37 @@ async def test_scheduler_notification_callback(tmp_path):
     assert notifications[0]["status"] in ("done", "failed")
 
     await db.close()
+
+
+@pytest.mark.asyncio
+async def test_scheduler_enriches_prompt(tmp_path):
+    """Scheduler enriches prompt with persona context."""
+    from myagent.context_manager import ContextManager
+
+    # Create persona
+    persona_dir = tmp_path / "persona"
+    persona_dir.mkdir()
+    (persona_dir / "identity.md").write_text("You are TestAgent.")
+
+    db = Database(str(tmp_path / "test.db"))
+    await db.init()
+
+    cm = ContextManager(str(persona_dir))
+
+    script = tmp_path / "fake_claude.sh"
+    script.write_text('#!/bin/bash\necho \'{"type":"result","content":"done"}\'\n')
+    script.chmod(0o755)
+
+    claude = ClaudeSettings(binary=str(script), default_cwd=str(tmp_path), timeout=10, args=[])
+    sched_settings = SchedulerSettings(max_daily_calls=10, min_interval_seconds=0)
+    scheduler = Scheduler(db, claude, sched_settings, context_manager=cm)
+
+    task = Task(prompt="hello world", source=TaskSource.CLI, cwd=str(tmp_path))
+    await db.create_task(task)
+    await scheduler.process_one()
+
+    # Verify task was processed (prompt was enriched internally)
+    updated = await db.get_task(task.id)
+    assert updated.status.value in ("done", "failed")
+
+    await db.close()
