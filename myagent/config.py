@@ -57,6 +57,17 @@ class PostgresSettings(BaseModel):
     enabled: bool = True
 
 
+class ScannerSettings(BaseModel):
+    process_interval: int = 5
+    claude_projects_dir: str = "~/.claude/projects"
+    max_messages_cached: int = 200
+
+
+class JWTSettings(BaseModel):
+    secret: str = "change-me-jwt-secret"
+    expiry_hours: int = 168  # 7 days
+
+
 class AgentConfig(BaseModel):
     agent: AgentSettings
     claude: ClaudeSettings
@@ -66,6 +77,8 @@ class AgentConfig(BaseModel):
     relay: RelaySettings = RelaySettings()
     doubao: DoubaoSettings = DoubaoSettings()
     postgres: PostgresSettings = PostgresSettings()
+    scanner: ScannerSettings = ScannerSettings()
+    jwt: JWTSettings = JWTSettings()
 
 
 def load_config(path: str) -> AgentConfig:

@@ -45,3 +45,12 @@ doubao:
 postgres:
   dsn: "postgresql://ying@localhost/myagent"
   enabled: false
+
+scanner:
+  process_interval: 5
+  claude_projects_dir: "~/.claude/projects"
+  max_messages_cached: 200
+
+jwt:
+  secret: "myagent-jwt-secret-change-me"
+  expiry_hours: 168

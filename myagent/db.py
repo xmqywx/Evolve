@@ -6,7 +6,7 @@ from uuid import uuid4
 
 import aiosqlite
 
-from myagent.models import Task, TaskStatus, TaskSource
+from myagent.models import Task, TaskStatus, TaskSource, SessionInfo, SessionStatus
 
 PRIORITY_ORDER = {"high": 0, "normal": 1, "low": 2}
 
@@ -197,6 +197,53 @@ class Database:
         rows = await cursor.fetchall()
         return [dict(r) for r in rows]
 
+    # ------------------------------------------------------------------
+    # sessions
+    # ------------------------------------------------------------------
+
+    async def upsert_session(self, session: SessionInfo) -> None:
+        await self._conn.execute(
+            """INSERT INTO sessions (id, pid, cwd, project, tty, started_at, last_active, status, is_wrapped)
+               VALUES (?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(id) DO UPDATE SET
+                 pid=excluded.pid, cwd=excluded.cwd, project=excluded.project,
+                 tty=excluded.tty, last_active=excluded.last_active,
+                 status=excluded.status, is_wrapped=excluded.is_wrapped""",
+            (
+                session.id, session.pid, session.cwd, session.project,
+                session.tty, session.started_at.isoformat(),
+                session.last_active.isoformat(), session.status.value,
+                session.is_wrapped,
+            ),
+        )
+        await self._conn.commit()
+
+    async def get_session(self, session_id: str) -> SessionInfo | None:
+        cursor = await self._conn.execute(
+            "SELECT * FROM sessions WHERE id = ?", (session_id,)
+        )
+        row = await cursor.fetchone()
+        if row is None:
+            return None
+        return _row_to_session(row)
+
+    async def list_sessions(self, status: SessionStatus | None = None, limit: int = 50) -> list[SessionInfo]:
+        if status is not None:
+            cursor = await self._conn.execute(
+                "SELECT * FROM sessions WHERE status = ? ORDER BY last_active DESC LIMIT ?",
+                (status.value, limit),
+            )
+        else:
+            cursor = await self._conn.execute(
+                "SELECT * FROM sessions ORDER BY last_active DESC LIMIT ?", (limit,)
+            )
+        rows = await cursor.fetchall()
+        return [_row_to_session(r) for r in rows]
+
+    # ------------------------------------------------------------------
+    # entities
+    # ------------------------------------------------------------------
+
     async def create_entity(
         self,
         name: str,
@@ -224,6 +271,17 @@ def _escape_fts5(query: str) -> str:
     if not tokens:
         return ""
     return " ".join(f'"{t}"' for t in tokens)
+
+
+def _row_to_session(row: aiosqlite.Row) -> SessionInfo:
+    d = dict(row)
+    d["status"] = SessionStatus(d["status"])
+    d["is_wrapped"] = bool(d["is_wrapped"])
+    if d.get("started_at"):
+        d["started_at"] = datetime.fromisoformat(d["started_at"])
+    if d.get("last_active"):
+        d["last_active"] = datetime.fromisoformat(d["last_active"])
+    return SessionInfo(**d)
 
 
 def _row_to_task(row: aiosqlite.Row) -> Task:
@@ -290,6 +348,18 @@ CREATE TABLE IF NOT EXISTS entities (
     first_seen TEXT,
     last_updated TEXT,
     source_task_ids TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sessions (
+    id TEXT PRIMARY KEY,
+    pid INTEGER,
+    cwd TEXT NOT NULL,
+    project TEXT NOT NULL,
+    tty TEXT,
+    started_at TEXT NOT NULL,
+    last_active TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    is_wrapped BOOLEAN NOT NULL DEFAULT 0
 );
 
 CREATE VIRTUAL TABLE IF NOT EXISTS memory_search USING fts5(

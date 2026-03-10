@@ -45,6 +45,24 @@ class Task(BaseModel):
     complexity: str | None = None
 
 
+class SessionStatus(str, Enum):
+    ACTIVE = "active"
+    IDLE = "idle"
+    FINISHED = "finished"
+
+
+class SessionInfo(BaseModel):
+    id: str
+    pid: int | None = None
+    cwd: str
+    project: str
+    tty: str | None = None
+    started_at: datetime
+    last_active: datetime
+    status: SessionStatus = SessionStatus.ACTIVE
+    is_wrapped: bool = False
+
+
 class Message(BaseModel):
     id: str = Field(default_factory=_msg_id)
     source: TaskSource = TaskSource.CLI
