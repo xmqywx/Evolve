@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from typing import Optional
 
 import uvicorn
@@ -10,8 +11,10 @@ from pydantic import BaseModel
 
 from myagent.config import load_config, AgentConfig
 from myagent.db import Database
+from myagent.feishu import FeishuClient, build_task_card, parse_feishu_event
 from myagent.models import Task, TaskSource, TaskStatus
 from myagent.scheduler import Scheduler
+from myagent.ws_client import RelayClient
 
 security = HTTPBearer(auto_error=False)
 
@@ -48,12 +51,51 @@ async def create_app(config_path: str) -> FastAPI:
     config = load_config(config_path)
     db = Database(config.agent.db_path)
     await db.init()
-    scheduler = Scheduler(db, config.claude, config.scheduler)
+
+    # Feishu client
+    feishu_client = FeishuClient(config.feishu)
+
+    # Notification callback
+    async def on_task_done(task_id: str, status: str, summary: str | None) -> None:
+        task = await db.get_task(task_id)
+        if task is None:
+            return
+        duration = None
+        if task.started_at and task.finished_at:
+            duration = (task.finished_at - task.started_at).total_seconds()
+        card = build_task_card(
+            task_id=task_id,
+            prompt=task.prompt,
+            status=status,
+            summary=summary,
+            duration_seconds=duration,
+        )
+        await feishu_client.send_card(card)
+
+    scheduler = Scheduler(db, config.claude, config.scheduler, on_task_done=on_task_done)
+
+    # Relay client (WebSocket to wdao.chat)
+    async def on_relay_message(msg: dict) -> None:
+        """Handle incoming message from relay (Feishu events)."""
+        parsed = parse_feishu_event(msg)
+        if parsed is None:
+            return
+        # Create task from Feishu message
+        task = Task(
+            prompt=parsed["content"],
+            source=TaskSource.FEISHU,
+        )
+        await db.create_task(task)
+        logging.getLogger(__name__).info("Task created from Feishu: %s", task.id)
+
+    relay_client = RelayClient(config.relay, on_message=on_relay_message)
 
     app = FastAPI(title=config.agent.name)
     app.state.config = config
     app.state.db = db
     app.state.scheduler = scheduler
+    app.state.feishu_client = feishu_client
+    app.state.relay_client = relay_client
 
     # ------------------------------------------------------------------
     # Public routes
@@ -65,6 +107,8 @@ async def create_app(config_path: str) -> FastAPI:
             "status": "ok",
             "name": config.agent.name,
             "scheduler_remaining": scheduler._rate_limiter.remaining,
+            "feishu_enabled": config.feishu.enabled,
+            "relay_enabled": config.relay.enabled,
         }
 
     # ------------------------------------------------------------------
@@ -148,6 +192,11 @@ async def run_server(config_path: str) -> None:
 
     loop_task = asyncio.create_task(app.state.scheduler.run_loop())
 
+    # Start relay client if enabled
+    relay_task = None
+    if config.relay.enabled:
+        relay_task = asyncio.create_task(app.state.relay_client.run())
+
     server_config = uvicorn.Config(
         app,
         host=config.server.host,
@@ -160,4 +209,8 @@ async def run_server(config_path: str) -> None:
     finally:
         app.state.scheduler.stop()
         loop_task.cancel()
+        if relay_task:
+            app.state.relay_client.stop()
+            relay_task.cancel()
+        await app.state.feishu_client.close()
         await app.state.db.close()

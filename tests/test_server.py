@@ -8,6 +8,7 @@ from myagent.server import create_app
 async def app(config_yaml):
     application = await create_app(config_yaml)
     yield application
+    await application.state.feishu_client.close()
     await application.state.db.close()
 
 
@@ -64,4 +65,5 @@ async def test_auth_required(config_yaml):
     async with AsyncClient(transport=transport, base_url="http://test") as c:
         resp = await c.get("/api/tasks")
         assert resp.status_code == 401
+    await application.state.feishu_client.close()
     await application.state.db.close()
