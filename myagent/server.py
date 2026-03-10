@@ -17,6 +17,8 @@ from myagent.feishu import FeishuClient, build_task_card, parse_feishu_event
 from myagent.memory import MemoryManager
 from myagent.models import Task, TaskSource, TaskStatus
 from myagent.scheduler import Scheduler
+from myagent.router import MessageRouter
+from myagent.web import router as web_router
 from myagent.ws_client import RelayClient
 
 security = HTTPBearer(auto_error=False)
@@ -114,6 +116,13 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.doubao_client = doubao_client
     app.state.embedding_store = embedding_store
     app.state.memory_manager = memory_manager
+
+    # Message router
+    message_router = MessageRouter(doubao_client)
+    app.state.message_router = message_router
+
+    # Mount web routes
+    app.include_router(web_router)
 
     # ------------------------------------------------------------------
     # Public routes
