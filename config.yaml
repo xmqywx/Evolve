@@ -1,0 +1,22 @@
+agent:
+  name: "MyAgent"
+  data_dir: "/Users/ying/Documents/MyAgent"
+  db_path: "/Users/ying/Documents/MyAgent/agent.db"
+
+claude:
+  binary: "claude"
+  default_cwd: "/Users/ying/Documents"
+  timeout: 600
+  args:
+    - "--dangerously-skip-permissions"
+    - "--output-format"
+    - "stream-json"
+
+scheduler:
+  max_daily_calls: 50
+  min_interval_seconds: 30
+
+server:
+  host: "0.0.0.0"
+  port: 8090
+  secret: "change-me-to-a-real-secret"
