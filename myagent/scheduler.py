@@ -101,12 +101,26 @@ class Scheduler:
                 complexity=task.complexity,
             )
 
+        # Route execution based on complexity
+        agent_name = None
+        use_team = False
+        if task.complexity == "specialized":
+            # TODO: detect specific subagent from prompt/tags
+            agent_name = None  # Will be set by router in the future
+        elif task.complexity == "complex":
+            use_team = True
+
         # Execute and collect events
         contents: list[str] = []
         session_id: str | None = None
         failed = False
 
-        async for event in self._executor.execute(prompt=enriched_prompt, cwd=task.cwd):
+        async for event in self._executor.execute_with_agent(
+            prompt=enriched_prompt,
+            agent_name=agent_name,
+            cwd=task.cwd,
+            use_team=use_team,
+        ):
             event_type = event.get("type", "unknown")
 
             # Log the event
