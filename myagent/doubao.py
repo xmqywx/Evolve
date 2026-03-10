@@ -42,7 +42,11 @@ class DoubaoClient:
             })
             resp.raise_for_status()
             data = resp.json()
-            return data["data"][0]["embedding"]
+            embedding = data["data"][0]["embedding"]
+            # 豆包输出2048维，pgvector HNSW限制2000维，截断
+            if len(embedding) > 2000:
+                embedding = embedding[:2000]
+            return embedding
         except Exception:
             logger.exception("Failed to get embedding from Doubao")
             return None
