@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, date, timezone
+from typing import Callable, Awaitable
 
 from myagent.config import ClaudeSettings, SchedulerSettings
 from myagent.db import Database
@@ -54,6 +55,7 @@ class Scheduler:
         db: Database,
         claude_settings: ClaudeSettings,
         scheduler_settings: SchedulerSettings,
+        on_task_done: Callable[[str, str, str | None], Awaitable[None]] | None = None,
     ) -> None:
         self._db = db
         self._executor = Executor(claude_settings)
@@ -62,6 +64,7 @@ class Scheduler:
             min_interval=scheduler_settings.min_interval_seconds,
         )
         self._running = False
+        self._on_task_done = on_task_done
 
     async def process_one(self) -> bool:
         if not self._rate_limiter.can_execute():
@@ -106,6 +109,7 @@ class Scheduler:
                 failed = True
 
         finished = datetime.now(timezone.utc).isoformat()
+        result_summary = None
 
         if failed:
             await self._db.update_task(
@@ -127,6 +131,13 @@ class Scheduler:
                 raw_output=raw_output,
                 session_id=session_id,
             )
+
+        if self._on_task_done:
+            try:
+                final_status = "failed" if failed else "done"
+                await self._on_task_done(task.id, final_status, result_summary)
+            except Exception:
+                pass  # Don't let notification errors break scheduling
 
         return True
 
