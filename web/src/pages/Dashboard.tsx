@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import { useWebSocket } from '../hooks/useWebSocket';
-import type { Session, Task, StatusInfo, MemoryStats } from '../utils/types';
+import type { Session, Task, StatusInfo, MemoryStats, AgentHeartbeat, AgentStats } from '../utils/types';
 
 /* ─── Survival project types ─── */
 interface SurvivalProject {
@@ -89,12 +89,14 @@ export default function DashboardPage() {
   const [newProjectName, setNewProjectName] = useState('');
   const [newProjectDesc, setNewProjectDesc] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [latestHeartbeat, setLatestHeartbeat] = useState<AgentHeartbeat | null>(null);
+  const [agentStats, setAgentStats] = useState<AgentStats | null>(null);
 
   /* fetch all data */
   const fetchAll = useCallback(async () => {
     setLoading(true);
     try {
-      const [sessRes, taskRes, statusRes, healthRes, memRes, projRes] =
+      const [sessRes, taskRes, statusRes, healthRes, memRes, projRes, hbRes, asRes] =
         await Promise.allSettled([
           apiFetch<Session[]>('/api/sessions'),
           apiFetch<Task[]>('/api/tasks?limit=10'),
@@ -102,6 +104,8 @@ export default function DashboardPage() {
           fetch('/health').then((r) => r.json()) as Promise<HealthInfo>,
           apiFetch<MemoryStats>('/api/memory/stats'),
           apiFetch<SurvivalProject[]>('/api/survival/projects'),
+          apiFetch<AgentHeartbeat>('/api/agent/heartbeat?latest=true'),
+          apiFetch<AgentStats>('/api/agent/stats'),
         ]);
       if (sessRes.status === 'fulfilled') setSessions(sessRes.value);
       if (taskRes.status === 'fulfilled') setTasks(taskRes.value);
@@ -109,6 +113,8 @@ export default function DashboardPage() {
       if (healthRes.status === 'fulfilled') setHealth(healthRes.value);
       if (memRes.status === 'fulfilled') setMemStats(memRes.value);
       if (projRes.status === 'fulfilled') setProjects(projRes.value);
+      if (hbRes.status === 'fulfilled') setLatestHeartbeat(hbRes.value);
+      if (asRes.status === 'fulfilled') setAgentStats(asRes.value);
     } finally {
       setLoading(false);
     }
@@ -177,15 +183,18 @@ export default function DashboardPage() {
   };
 
   /* ─── Render ─── */
+  const deliverablesToday = agentStats?.deliverables_today ?? 0;
+  const pendingUpgrades = agentStats?.pending_upgrades ?? 0;
+
   const statCards = [
     { label: '活跃会话', value: activeSessions, icon: Monitor, accent: 'var(--accent)' },
-    { label: '总会话', value: totalSessions, icon: Server, accent: 'var(--text-secondary)' },
     { label: '运行中任务', value: runningTasks, icon: Zap, accent: 'rgb(250,204,21)' },
-    { label: 'API 剩余', value: apiRemaining, icon: Cpu, accent: 'rgb(96,165,250)' },
+    { label: '今日交付', value: deliverablesToday, icon: Rocket, accent: 'rgb(34,211,238)' },
+    { label: '待审升级', value: pendingUpgrades, icon: AlertTriangle, accent: 'rgb(251,191,36)' },
     { label: '记忆数', value: memories, icon: Brain, accent: 'rgb(168,85,247)' },
     { label: '观察数', value: observations, icon: Eye, accent: 'rgb(34,211,238)' },
     { label: '已完成/总任务', value: `${doneTasks}/${totalTasks}`, icon: CheckCircle, accent: 'rgb(74,222,128)' },
-    { label: '失败任务', value: failedTasks, icon: XCircle, accent: 'rgb(248,113,113)' },
+    { label: 'API 剩余', value: apiRemaining, icon: Cpu, accent: 'rgb(96,165,250)' },
   ];
 
   const healthServices: { key: string; label: string; icon: React.ElementType }[] = [
@@ -262,6 +271,52 @@ export default function DashboardPage() {
           })}
         </div>
       </div>
+
+      {/* Agent Status */}
+      {latestHeartbeat && (
+        <div className="rounded-lg p-4" style={{ background: 'var(--surface)' }}>
+          <div className="flex items-center gap-2 mb-3">
+            <Flame size={16} style={{ color: 'rgb(74,222,128)' }} />
+            <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+              Agent 状态
+            </span>
+            <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>
+              {timeAgo(latestHeartbeat.created_at)}
+            </span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>当前活动</div>
+              <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
+                {latestHeartbeat.activity}
+              </div>
+            </div>
+            <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>描述</div>
+              <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                {latestHeartbeat.description || '无描述'}
+              </div>
+            </div>
+            <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>进度</div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--border)' }}>
+                  <div
+                    className="h-2 rounded-full transition-all"
+                    style={{
+                      width: `${latestHeartbeat.progress_pct ?? 0}%`,
+                      background: 'var(--accent)',
+                    }}
+                  />
+                </div>
+                <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                  {latestHeartbeat.progress_pct ?? 0}%
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quick Actions */}
       <div className="flex flex-wrap gap-2">

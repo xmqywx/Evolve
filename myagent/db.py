@@ -722,6 +722,12 @@ class Database:
         )
         row = await cursor.fetchone()
         stats["pending_upgrades"] = row[0] if row else 0
+        # Today's deliverables
+        cursor = await self._db.execute(
+            "SELECT COUNT(*) FROM agent_deliverables WHERE date(created_at) = date('now')"
+        )
+        row = await cursor.fetchone()
+        stats["deliverables_today"] = row[0] if row else 0
         return stats
 
     # ------------------------------------------------------------------

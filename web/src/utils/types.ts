@@ -187,6 +187,7 @@ export interface AgentStats {
   upgrades: number;
   reviews: number;
   pending_upgrades: number;
+  deliverables_today: number;
 }
 
 export interface MemoryStats {
