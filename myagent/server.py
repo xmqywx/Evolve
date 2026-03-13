@@ -915,7 +915,7 @@ async def create_app(config_path: str) -> FastAPI:
         )
         if code == 0:
             # Force tmux to resize to the largest client
-            await _chat_run_cmd(f"tmux set-option -t {CHAT_TMUX_SESSION} window-size latest")
+            await _chat_run_cmd(f"tmux set-option -t {CHAT_TMUX_SESSION} window-size largest")
             await _chat_run_cmd(f"tmux set-option -t {CHAT_TMUX_SESSION} aggressive-resize on")
         if code != 0:
             return {"status": "error", "error": output}
@@ -1417,7 +1417,7 @@ async def create_app(config_path: str) -> FastAPI:
 
         # Ensure tmux uses the largest client size
         await asyncio.create_subprocess_exec(
-            "tmux", "set-option", "-t", tmux_session, "window-size", "latest",
+            "tmux", "set-option", "-t", tmux_session, "window-size", "largest",
             stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
         )
         await asyncio.create_subprocess_exec(
@@ -1427,7 +1427,7 @@ async def create_app(config_path: str) -> FastAPI:
 
         try:
             proc = await asyncio.create_subprocess_exec(
-                "tmux", "attach-session", "-d", "-t", tmux_session,
+                "tmux", "attach-session", "-t", tmux_session,
                 stdin=slave_fd, stdout=slave_fd, stderr=slave_fd,
             )
         finally:

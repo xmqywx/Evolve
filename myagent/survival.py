@@ -593,7 +593,7 @@ class SurvivalEngine:
             await self._log("error", f"tmux 启动失败: {output}")
             return {"status": "error", "error": output}
 
-        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size latest")
+        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size largest")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} aggressive-resize on")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} mouse on")
 
