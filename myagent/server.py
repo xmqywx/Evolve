@@ -1433,6 +1433,24 @@ async def create_app(config_path: str) -> FastAPI:
         finally:
             os.close(slave_fd)
 
+        # Force tmux to resize its window/pane to match the PTY size
+        async def _force_tmux_resize(rows: int, cols: int):
+            await asyncio.create_subprocess_exec(
+                "tmux", "resize-window", "-t", tmux_session, "-x", str(cols), "-y", str(rows),
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+            await asyncio.create_subprocess_exec(
+                "tmux", "refresh-client", "-C", f"{cols},{rows}",
+                stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+            )
+
+        # Delayed initial resize to ensure tmux picks up the correct size
+        async def _delayed_resize():
+            await asyncio.sleep(0.5)
+            await _force_tmux_resize(initial_rows, initial_cols)
+
+        asyncio.create_task(_delayed_resize())
+
         loop = asyncio.get_event_loop()
 
         async def read_pty():
@@ -1461,6 +1479,8 @@ async def create_app(config_path: str) -> FastAPI:
                                 cols = ctrl.get("cols", 120)
                                 fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
                                             struct.pack("HHHH", rows, cols, 0, 0))
+                                # Also force tmux window resize
+                                asyncio.create_task(_force_tmux_resize(rows, cols))
                         except json.JSONDecodeError:
                             await loop.run_in_executor(
                                 None, os.write, master_fd, msg["text"].encode("utf-8"))

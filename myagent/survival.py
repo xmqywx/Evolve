@@ -587,7 +587,7 @@ class SurvivalEngine:
         self._claude_session_id = self._load_claude_session_id()
 
         code, output = await self._run_cmd(
-            f'tmux new-session -d -s {TMUX_SESSION_NAME}'
+            f'tmux new-session -d -s {TMUX_SESSION_NAME} -x 200 -y 50'
         )
         if code != 0:
             await self._log("error", f"tmux 启动失败: {output}")
