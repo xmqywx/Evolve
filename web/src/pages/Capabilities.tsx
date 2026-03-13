@@ -100,6 +100,28 @@ export default function CapabilitiesPage() {
   const [behaviors, setBehaviors] = useState<BehaviorSetting[]>(DEFAULT_BEHAVIORS);
   const [upgrades, setUpgrades] = useState<AgentUpgrade[]>([]);
   const [upgradesLoading, setUpgradesLoading] = useState(true);
+  const [configLoaded, setConfigLoaded] = useState(false);
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      const data = await apiFetch<Record<string, string>>('/api/agent/config');
+      // Apply saved values to capabilities
+      setCapabilities((prev) =>
+        prev.map((c) => {
+          const saved = data[`cap_${c.key}`];
+          return saved !== undefined ? { ...c, enabled: saved === 'true' } : c;
+        }),
+      );
+      // Apply saved values to behaviors
+      setBehaviors((prev) =>
+        prev.map((b) => {
+          const saved = data[`beh_${b.key}`];
+          return saved !== undefined ? { ...b, current: saved } : b;
+        }),
+      );
+      setConfigLoaded(true);
+    } catch { setConfigLoaded(true); }
+  }, []);
 
   const fetchUpgrades = useCallback(async () => {
     setUpgradesLoading(true);
@@ -111,18 +133,31 @@ export default function CapabilitiesPage() {
     }
   }, []);
 
-  useEffect(() => { fetchUpgrades(); }, [fetchUpgrades]);
+  useEffect(() => { fetchConfig(); fetchUpgrades(); }, [fetchConfig, fetchUpgrades]);
+
+  const saveConfig = async (key: string, value: string) => {
+    try {
+      await apiFetch('/api/agent/config', {
+        method: 'PUT',
+        body: JSON.stringify({ [key]: value }),
+      });
+    } catch { /* */ }
+  };
 
   const toggleCapability = (key: string) => {
-    setCapabilities((prev) =>
-      prev.map((c) => c.key === key ? { ...c, enabled: !c.enabled } : c),
-    );
+    setCapabilities((prev) => {
+      const updated = prev.map((c) => c.key === key ? { ...c, enabled: !c.enabled } : c);
+      const cap = updated.find((c) => c.key === key);
+      if (cap) saveConfig(`cap_${key}`, String(cap.enabled));
+      return updated;
+    });
   };
 
   const setBehavior = (key: string, value: string) => {
     setBehaviors((prev) =>
       prev.map((b) => b.key === key ? { ...b, current: value } : b),
     );
+    saveConfig(`beh_${key}`, value);
   };
 
   const handleUpgradeAction = async (id: number, status: 'approved' | 'rejected') => {
@@ -143,6 +178,12 @@ export default function CapabilitiesPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-xl font-semibold">能力</h1>
+
+      {!configLoaded && (
+        <div className="flex justify-center py-4">
+          <RefreshCw size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
+        </div>
+      )}
 
       {/* Capability toggles */}
       <div className="space-y-2">

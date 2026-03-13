@@ -761,6 +761,16 @@ async def create_app(config_path: str) -> FastAPI:
     async def get_agent_stats():
         return await db.get_agent_stats()
 
+    @app.get("/api/agent/config", dependencies=[Depends(verify_auth)])
+    async def get_agent_config():
+        return await db.get_agent_config()
+
+    @app.put("/api/agent/config", dependencies=[Depends(verify_auth)])
+    async def put_agent_config(body: dict):
+        items = {k: str(v) for k, v in body.items()}
+        await db.set_agent_config_bulk(items)
+        return await db.get_agent_config()
+
     # ------------------------------------------------------------------
     # Thinking
     # ------------------------------------------------------------------
@@ -1633,7 +1643,7 @@ async def run_server(config_path: str) -> None:
     loop_task = asyncio.create_task(app.state.scheduler.run_loop())
 
     # Start scanner
-    scanner_task = asyncio.create_task(app.state.scanner.run_scan_loop())
+    scanner_task = asyncio.create_task(app.state.scanner.run_watch_loop())
 
     # Start daily review cron + backup
     review_task = asyncio.create_task(_daily_review_loop(app))

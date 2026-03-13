@@ -336,7 +336,7 @@ class SurvivalEngine:
     # Identity Prompt
     # ------------------------------------------------------------------
 
-    def _build_identity_prompt(self, projects: list, profile: list) -> str:
+    async def _build_identity_prompt(self, projects: list, profile: list) -> str:
         project_lines = []
         for p in projects:
             project_lines.append(
@@ -350,6 +350,41 @@ class SurvivalEngine:
         profile_text = "\n".join(profile_lines) if profile_lines else "  暂无数据"
 
         ws = self._workspace
+
+        # Load dynamic capabilities/behavior config from DB
+        config_map = await self._db.get_agent_config()
+        cap_labels = {
+            'browser_access': '浏览器访问',
+            'code_execution': '代码执行',
+            'file_write': '文件系统写入',
+            'git_push': 'Git 推送',
+            'spend_money': '花钱',
+            'feishu_notify': '飞书通知',
+            'install_packages': '安装包',
+        }
+        cap_defaults = {
+            'browser_access': True, 'code_execution': True, 'file_write': True,
+            'git_push': True, 'spend_money': False, 'feishu_notify': True,
+            'install_packages': False,
+        }
+        cap_lines = []
+        for key, label in cap_labels.items():
+            enabled = config_map.get(f'cap_{key}', str(cap_defaults[key])).lower() == 'true'
+            cap_lines.append(f"  - {label}: {'允许' if enabled else '禁止'}")
+        caps_text = "\n".join(cap_lines)
+
+        beh_labels = {
+            'autonomy': ('自主程度', {'conservative': '保守', 'balanced': '平衡', 'aggressive': '积极'}),
+            'report_frequency': ('汇报频率', {'every_step': '每步', 'milestone': '里程碑', 'result_only': '仅结果'}),
+            'risk_tolerance': ('风险容忍', {'safe_only': '安全', 'moderate': '适中', 'experimental': '实验'}),
+            'work_pace': ('工作节奏', {'deep_focus': '深度', 'balanced': '平衡', 'multi_task': '多线'}),
+        }
+        beh_defaults = {'autonomy': 'balanced', 'report_frequency': 'milestone', 'risk_tolerance': 'moderate', 'work_pace': 'balanced'}
+        beh_lines = []
+        for key, (label, opts) in beh_labels.items():
+            val = config_map.get(f'beh_{key}', beh_defaults[key])
+            beh_lines.append(f"  - {label}: {opts.get(val, val)}")
+        behs_text = "\n".join(beh_lines)
 
         return f"""你是 Ying 的生存引擎——一个持续运行的自主 AI 代理。
 
@@ -430,6 +465,12 @@ class SurvivalEngine:
 - 使用 `gh repo create` 创建远程仓库（账号: xmqywx）
 - 没有 push 到 GitHub 的代码等于不存在
 
+## 当前能力配置（由 Ying 在控制台设置，你必须遵守）
+{caps_text}
+
+## 当前行为配置
+{behs_text}
+
 ## 工作边界
 - 可以修改/创建/删除 {ws} 下的所有文件
 - 不要修改 {ws} 之外的任何项目代码
@@ -502,7 +543,7 @@ class SurvivalEngine:
             # First start: send full identity prompt
             projects = await self._db.list_survival_projects()
             profile = await self._db.get_recent_profile_data(limit=5)
-            prompt = self._build_identity_prompt(projects, profile)
+            prompt = await self._build_identity_prompt(projects, profile)
             await self.send_message(prompt)
             await self._log("start", "已发送身份 prompt")
 

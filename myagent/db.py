@@ -731,6 +731,37 @@ class Database:
         return stats
 
     # ------------------------------------------------------------------
+    # agent_config
+    # ------------------------------------------------------------------
+
+    async def get_agent_config(self) -> dict:
+        """Get all agent config key-value pairs."""
+        cursor = await self._db.execute("SELECT key, value FROM agent_config")
+        rows = await cursor.fetchall()
+        return {r[0]: r[1] for r in rows}
+
+    async def set_agent_config(self, key: str, value: str) -> None:
+        """Upsert a single agent config key."""
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            "INSERT INTO agent_config (key, value, updated_at) VALUES (?, ?, ?) "
+            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+            (key, value, now),
+        )
+        await self._db.commit()
+
+    async def set_agent_config_bulk(self, items: dict[str, str]) -> None:
+        """Upsert multiple agent config keys."""
+        now = datetime.now(timezone.utc).isoformat()
+        for key, value in items.items():
+            await self._db.execute(
+                "INSERT INTO agent_config (key, value, updated_at) VALUES (?, ?, ?) "
+                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
+                (key, value, now),
+            )
+        await self._db.commit()
+
+    # ------------------------------------------------------------------
     # entities
     # ------------------------------------------------------------------
 
@@ -991,5 +1022,11 @@ CREATE TABLE IF NOT EXISTS agent_reviews (
     tokens_used INTEGER,
     cost_estimate TEXT,
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_config (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 """
