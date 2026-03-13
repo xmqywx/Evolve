@@ -1,5 +1,4 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { Construction } from 'lucide-react';
 import { isLoggedIn } from './utils/api';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
@@ -14,18 +13,7 @@ import WorkflowsPage from './pages/Workflows';
 import CapabilitiesPage from './pages/Capabilities';
 import GuidePage from './pages/Guide';
 import PromptEditorPage from './pages/PromptEditor';
-
-function Placeholder({ name }: { name: string }) {
-  return (
-    <div>
-      <h1 className="text-xl font-semibold mb-4">{name}</h1>
-      <div className="flex items-center gap-2 text-[var(--text-secondary)]">
-        <Construction size={16} />
-        <p>即将上线。</p>
-      </div>
-    </div>
-  );
-}
+import SettingsPage from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -49,7 +37,7 @@ export default function App() {
         <Route path="memory" element={<MemoryPage />} />
         <Route path="guide" element={<GuidePage />} />
         <Route path="prompt" element={<PromptEditorPage />} />
-        <Route path="settings" element={<Placeholder name="设置" />} />
+        <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
   );

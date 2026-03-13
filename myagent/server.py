@@ -858,6 +858,60 @@ async def create_app(config_path: str) -> FastAPI:
         return await get_prompt_template()
 
     # ------------------------------------------------------------------
+    # Cron job management
+    # ------------------------------------------------------------------
+
+    @app.get("/api/system/cron", dependencies=[Depends(verify_auth)])
+    async def list_cron_jobs():
+        """List current user's crontab entries."""
+        import subprocess
+        try:
+            result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+            if result.returncode != 0:
+                return {"jobs": [], "raw": ""}
+            raw = result.stdout
+            jobs = []
+            for i, line in enumerate(raw.strip().split("\n")):
+                line = line.strip()
+                if not line or line.startswith("#") or line.startswith("PATH="):
+                    continue
+                parts = line.split(None, 5)
+                if len(parts) >= 6:
+                    jobs.append({
+                        "id": i,
+                        "schedule": " ".join(parts[:5]),
+                        "command": parts[5],
+                        "raw": line,
+                    })
+            return {"jobs": jobs, "raw": raw}
+        except Exception as e:
+            return {"jobs": [], "raw": "", "error": str(e)}
+
+    @app.delete("/api/system/cron/{job_id}", dependencies=[Depends(verify_auth)])
+    async def delete_cron_job(job_id: int):
+        """Delete a specific crontab entry by line index."""
+        import subprocess
+        result = subprocess.run(["crontab", "-l"], capture_output=True, text=True)
+        if result.returncode != 0:
+            raise HTTPException(status_code=404, detail="No crontab")
+        lines = result.stdout.strip().split("\n")
+        if job_id < 0 or job_id >= len(lines):
+            raise HTTPException(status_code=404, detail="Job not found")
+        lines.pop(job_id)
+        new_crontab = "\n".join(lines) + "\n" if lines else ""
+        proc = subprocess.run(["crontab", "-"], input=new_crontab, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise HTTPException(status_code=500, detail=proc.stderr)
+        return {"status": "deleted"}
+
+    @app.delete("/api/system/cron", dependencies=[Depends(verify_auth)])
+    async def clear_all_cron():
+        """Clear all crontab entries."""
+        import subprocess
+        subprocess.run(["crontab", "-r"], capture_output=True, text=True)
+        return {"status": "cleared"}
+
+    # ------------------------------------------------------------------
     # Thinking
     # ------------------------------------------------------------------
 
