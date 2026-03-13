@@ -185,11 +185,10 @@ export default function WorkflowsPage() {
                     </span>
                     {!w.enabled && (
                       <span
-                        className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded"
-                        style={{ background: 'rgba(251,191,36,0.15)', color: 'rgb(251,191,36)' }}
+                        className="text-[10px] px-1.5 py-0.5 rounded"
+                        style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}
                       >
-                        <AlertCircle size={10} />
-                        待审批
+                        未启用
                       </span>
                     )}
                     <span
