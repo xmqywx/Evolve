@@ -107,18 +107,32 @@ class CronScheduler:
 
     async def _run_command(self, run_id: int, command: str) -> None:
         try:
+            t0 = datetime.now(timezone.utc)
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=300)
-            output = stdout.decode(errors="replace")[:10000] if stdout else None
-            error = stderr.decode(errors="replace")[:5000] if stderr else None
+            elapsed = (datetime.now(timezone.utc) - t0).total_seconds()
+
+            out_text = stdout.decode(errors="replace").strip()[:10000] if stdout else ""
+            err_text = stderr.decode(errors="replace").strip()[:5000] if stderr else ""
             status = "success" if proc.returncode == 0 else "failed"
-            if error and status == "success":
-                output = (output or "") + "\n--- stderr ---\n" + error
-                error = None
+
+            # Build output summary
+            parts = []
+            if out_text:
+                parts.append(out_text)
+            if err_text and status == "success":
+                parts.append(f"--- stderr ---\n{err_text}")
+            parts.append(f"--- exit={proc.returncode}, {elapsed:.1f}s ---")
+            output = "\n".join(parts)
+
+            error = err_text if (err_text and status == "failed") else None
+            if error:
+                error = f"exit code {proc.returncode}\n{error}"
+
             await self._db.finish_scheduled_task_run(run_id, status=status, output=output, error=error)
         except asyncio.TimeoutError:
             await self._db.finish_scheduled_task_run(run_id, status="failed", error="Timeout (300s)")
