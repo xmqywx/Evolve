@@ -1415,6 +1415,16 @@ async def create_app(config_path: str) -> FastAPI:
         fcntl.ioctl(master_fd, termios.TIOCSWINSZ,
                      struct.pack("HHHH", initial_rows, initial_cols, 0, 0))
 
+        # Ensure tmux uses the largest client size
+        await asyncio.create_subprocess_exec(
+            "tmux", "set-option", "-t", tmux_session, "window-size", "largest",
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+        await asyncio.create_subprocess_exec(
+            "tmux", "set-option", "-t", tmux_session, "aggressive-resize", "on",
+            stdout=asyncio.subprocess.DEVNULL, stderr=asyncio.subprocess.DEVNULL,
+        )
+
         try:
             proc = await asyncio.create_subprocess_exec(
                 "tmux", "attach-session", "-d", "-t", tmux_session,

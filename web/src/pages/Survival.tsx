@@ -53,6 +53,7 @@ export default function SurvivalPage() {
         brightCyan: '#56d364', brightWhite: '#f0f6fc',
       },
       scrollback: 10000, convertEol: true,
+      allowProposedApi: true,
     });
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon); term.loadAddon(new WebLinksAddon());
@@ -77,7 +78,19 @@ export default function SurvivalPage() {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
     const ws = new WebSocket(createWsUrl('/ws/survival'));
     ws.binaryType = 'arraybuffer'; wsRef.current = ws;
-    ws.onopen = () => { setConnected(true); fitAddonRef.current?.fit(); const t = terminalRef.current; if (t) { ws.send(JSON.stringify({ type: 'resize', rows: t.rows, cols: t.cols })); t.focus(); } };
+    ws.onopen = () => {
+      setConnected(true);
+      const fit = fitAddonRef.current;
+      const t = terminalRef.current;
+      if (fit && t) {
+        fit.fit();
+        ws.send(JSON.stringify({ type: 'resize', rows: t.rows, cols: t.cols }));
+        t.focus();
+        // Retry fit after layout settles
+        setTimeout(() => { fit.fit(); ws.send(JSON.stringify({ type: 'resize', rows: t.rows, cols: t.cols })); }, 300);
+        setTimeout(() => { fit.fit(); ws.send(JSON.stringify({ type: 'resize', rows: t.rows, cols: t.cols })); }, 1000);
+      }
+    };
     ws.onmessage = (evt) => { const t = terminalRef.current; if (!t) return; if (evt.data instanceof ArrayBuffer) t.write(new Uint8Array(evt.data)); else t.write(evt.data); };
     ws.onclose = () => { setConnected(false); reconnectTimer.current = setTimeout(connectWs, 3000); };
     ws.onerror = () => ws.close();
@@ -160,7 +173,7 @@ export default function SurvivalPage() {
           )}
         </div>
       </div>
-      <div ref={termRef} className="flex-1 min-h-[150px] bg-[#0d1117] rounded-lg overflow-hidden" />
+      <div ref={termRef} className="flex-1 min-h-0 bg-[#0d1117] rounded-lg overflow-hidden" style={{ minHeight: '300px' }} />
       {/* Drag handle */}
       <div onMouseDown={onDragStart} className="h-1.5 cursor-row-resize flex items-center justify-center">
         <div className="w-10 h-0.5 rounded bg-[var(--text-muted)]" />
