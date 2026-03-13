@@ -150,10 +150,34 @@ export interface AgentWorkflow {
   id: number;
   name: string;
   trigger: string;
+  category: string;
+  description: string | null;
   steps: string | null;
+  dependencies: string | null;
+  estimated_time: number | null;
+  estimated_value: string | null;
   enabled: boolean;
   created_at: string;
   updated_at: string;
+  // Run stats (attached by backend)
+  run_count: number;
+  success_count: number;
+  success_rate: number;
+  total_revenue: string | null;
+  last_run_at: string | null;
+}
+
+export interface WorkflowRun {
+  id: number;
+  workflow_id: number;
+  status: string;
+  steps_completed: number;
+  total_steps: number;
+  result_summary: string | null;
+  revenue: string | null;
+  error_log: string | null;
+  started_at: string;
+  finished_at: string | null;
 }
 
 export interface AgentUpgrade {

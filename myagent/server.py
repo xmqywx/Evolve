@@ -156,8 +156,22 @@ class DiscoveryRequest(BaseModel):
 class WorkflowRequest(BaseModel):
     name: str
     trigger: str = "manual"
+    category: str = "automation"
+    description: str | None = None
     steps: list[dict] | None = None
+    dependencies: dict | None = None
+    estimated_time: int | None = None
+    estimated_value: str | None = None
     enabled: bool = False
+
+
+class WorkflowRunRequest(BaseModel):
+    status: str = "success"
+    steps_completed: int = 0
+    total_steps: int = 0
+    result_summary: str | None = None
+    revenue: str | None = None
+    error_log: str | None = None
 
 
 class UpgradeRequest(BaseModel):
@@ -706,11 +720,14 @@ async def create_app(config_path: str) -> FastAPI:
 
     @app.post("/api/agent/workflow", dependencies=[Depends(verify_auth)])
     async def agent_workflow(req: WorkflowRequest):
-        import json
-        steps_json = json.dumps(req.steps) if req.steps else None
+        import json as _json
+        steps_json = _json.dumps(req.steps) if req.steps else None
+        deps_json = _json.dumps(req.dependencies) if req.dependencies else None
         w_id = await db.add_workflow(
-            name=req.name, trigger=req.trigger,
-            steps=steps_json, enabled=req.enabled,
+            name=req.name, trigger=req.trigger, category=req.category,
+            description=req.description, steps=steps_json,
+            dependencies=deps_json, estimated_time=req.estimated_time,
+            estimated_value=req.estimated_value, enabled=req.enabled,
         )
         return {"status": "ok", "id": w_id}
 
@@ -718,12 +735,37 @@ async def create_app(config_path: str) -> FastAPI:
     async def list_workflows(limit: int = Query(50)):
         return await db.list_workflows(limit=limit)
 
+    @app.get("/api/agent/workflows/{workflow_id}", dependencies=[Depends(verify_auth)])
+    async def get_workflow(workflow_id: int):
+        w = await db.get_workflow(workflow_id)
+        if not w:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        w["runs"] = await db.list_workflow_runs(workflow_id, limit=10)
+        return w
+
     @app.patch("/api/agent/workflows/{workflow_id}", dependencies=[Depends(verify_auth)])
     async def update_workflow(workflow_id: int, req: dict):
         ok = await db.update_workflow(workflow_id, **req)
         if not ok:
             raise HTTPException(status_code=404, detail="Workflow not found")
         return {"status": "ok"}
+
+    @app.post("/api/agent/workflows/{workflow_id}/run", dependencies=[Depends(verify_auth)])
+    async def add_workflow_run(workflow_id: int, req: WorkflowRunRequest):
+        w = await db.get_workflow(workflow_id)
+        if not w:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        run_id = await db.add_workflow_run(
+            workflow_id=workflow_id, status=req.status,
+            steps_completed=req.steps_completed, total_steps=req.total_steps,
+            result_summary=req.result_summary, revenue=req.revenue,
+            error_log=req.error_log,
+        )
+        return {"status": "ok", "id": run_id}
+
+    @app.get("/api/agent/workflows/{workflow_id}/runs", dependencies=[Depends(verify_auth)])
+    async def list_workflow_runs(workflow_id: int, limit: int = Query(20)):
+        return await db.list_workflow_runs(workflow_id, limit=limit)
 
     @app.post("/api/agent/upgrade", dependencies=[Depends(verify_auth)])
     async def agent_upgrade(req: UpgradeRequest):

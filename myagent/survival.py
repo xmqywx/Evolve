@@ -388,6 +388,38 @@ class SurvivalEngine:
             beh_lines.append(f"  - {label}: {opts.get(val, val)}")
         behs_text = "\n".join(beh_lines)
 
+        # Load workflow skill library
+        workflows = await self._db.list_workflows(limit=50)
+        enabled_workflows = [w for w in workflows if w.get("enabled")]
+        if enabled_workflows:
+            skill_lines = []
+            for i, w in enumerate(enabled_workflows, 1):
+                rate = w.get("success_rate", 0)
+                runs = w.get("run_count", 0)
+                succ = w.get("success_count", 0)
+                rev = w.get("total_revenue") or "无"
+                last = w.get("last_run_at") or "从未"
+                cat = w.get("category", "automation")
+                est_time = w.get("estimated_time") or "?"
+                est_val = w.get("estimated_value") or "未知"
+                desc = w.get("description") or w["name"]
+                # Parse steps count
+                steps_count = 0
+                if w.get("steps"):
+                    try:
+                        import json as _json
+                        steps_count = len(_json.loads(w["steps"]))
+                    except Exception:
+                        pass
+                skill_lines.append(
+                    f"{i}. [{w['name']}] {cat} | 成功 {succ}/{runs} 次 | "
+                    f"收益: {rev} | 上次: {last}\n"
+                    f"   {desc} | {steps_count}步 | 预计{est_time}min | 预期: {est_val}"
+                )
+            skills_text = "\n".join(skill_lines)
+        else:
+            skills_text = "暂无工作流。当你发现可复用的赚钱流程时，创建工作流记录下来。"
+
         return f"""你是 Ying 的生存引擎——一个持续运行的自主 AI 代理。
 
 ## 核心事实
@@ -434,6 +466,18 @@ class SurvivalEngine:
      -H "Content-Type: application/json" -H "Authorization: Bearer $MYAGENT_TOKEN" \\
      -d '{{"period":"{datetime.now().strftime('%Y-%m-%d')}","accomplished":["已完成1"],"next_priorities":["下一步1"]}}'
 
+7. **创建可复用工作流** → workflow
+   curl -X POST http://localhost:3818/api/agent/workflow \\
+     -H "Content-Type: application/json" -H "Authorization: Bearer $MYAGENT_TOKEN" \\
+     -d '{{"name":"流程名","category":"content_creation","description":"描述","steps":[{{"name":"步骤1","method":"script","script_path":"/path/to/script.py","command":"python script.py","expected_output":"输出描述"}}],"estimated_time":30,"estimated_value":"50-100 RMB"}}'
+   category 可选: content_creation | marketing | development | research | automation
+   method 可选: script | api_call | browser | command | manual
+
+8. **工作流执行完毕** → workflow run
+   curl -X POST http://localhost:3818/api/agent/workflows/{{workflow_id}}/run \\
+     -H "Content-Type: application/json" -H "Authorization: Bearer $MYAGENT_TOKEN" \\
+     -d '{{"status":"success","steps_completed":3,"total_steps":3,"result_summary":"执行总结","revenue":"收益金额"}}'
+
 ## 记忆管理
 - 工作目录: {ws}
 - 计划文件格式: `plans/YYYY-MM-DD-HHMMSS-<主题>.md`
@@ -452,6 +496,17 @@ class SurvivalEngine:
 
 ## 最近洞察
 {profile_text}
+
+## 你的技能库（可执行工作流）
+{skills_text}
+
+执行工作流时：
+- 先调 heartbeat 汇报 activity="coding", description="executing workflow: {{name}}"
+- 读取工作流详情 GET http://localhost:3818/api/agent/workflows/{{id}}
+- 按步骤执行：script 类型跑脚本，api_call 用 curl，browser 用 Chrome，command 跑命令
+- 遇到问题看 fallback_instructions
+- 执行完调 POST http://localhost:3818/api/agent/workflows/{{id}}/run 记录结果
+- 如果发现新的可复用流程，创建新工作流 POST http://localhost:3818/api/agent/workflow
 
 ## 你的工作原则
 1. **持续工作**——不要等待指令，主动推进最高优先级任务

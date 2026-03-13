@@ -37,6 +37,19 @@ class Database:
                 await self._conn.commit()
             except Exception:
                 pass  # column already exists
+        # Workflow v2 migrations
+        for col, defn in [
+            ("category", "TEXT NOT NULL DEFAULT 'automation'"),
+            ("description", "TEXT"),
+            ("dependencies", "TEXT"),
+            ("estimated_time", "INTEGER"),
+            ("estimated_value", "TEXT"),
+        ]:
+            try:
+                await self._conn.execute(f"ALTER TABLE agent_workflows ADD COLUMN {col} {defn}")
+                await self._conn.commit()
+            except Exception:
+                pass
 
     async def close(self) -> None:
         if self._conn:
@@ -598,13 +611,19 @@ class Database:
 
     async def add_workflow(
         self, name: str, trigger: str = "manual",
-        steps: str | None = None, enabled: bool = False,
+        category: str = "automation", description: str | None = None,
+        steps: str | None = None, dependencies: str | None = None,
+        estimated_time: int | None = None, estimated_value: str | None = None,
+        enabled: bool = False,
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
-            """INSERT INTO agent_workflows (name, trigger, steps, enabled, created_at, updated_at)
-               VALUES (?,?,?,?,?,?)""",
-            (name, trigger, steps, enabled, now, now),
+            """INSERT INTO agent_workflows
+               (name, trigger, category, description, steps, dependencies,
+                estimated_time, estimated_value, enabled, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (name, trigger, category, description, steps, dependencies,
+             estimated_time, estimated_value, enabled, now, now),
         )
         await self._db.commit()
         return cursor.lastrowid
@@ -613,10 +632,56 @@ class Database:
         cursor = await self._db.execute(
             "SELECT * FROM agent_workflows ORDER BY id DESC LIMIT ?", (limit,)
         )
-        return [dict(r) for r in await cursor.fetchall()]
+        workflows = [dict(r) for r in await cursor.fetchall()]
+        # Attach run stats for each workflow
+        for w in workflows:
+            stats = await self._get_workflow_run_stats(w["id"])
+            w.update(stats)
+        return workflows
+
+    async def get_workflow(self, workflow_id: int) -> dict | None:
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_workflows WHERE id = ?", (workflow_id,)
+        )
+        row = await cursor.fetchone()
+        if not row:
+            return None
+        w = dict(row)
+        w.update(await self._get_workflow_run_stats(workflow_id))
+        return w
+
+    async def _get_workflow_run_stats(self, workflow_id: int) -> dict:
+        cursor = await self._db.execute(
+            "SELECT COUNT(*) FROM agent_workflow_runs WHERE workflow_id = ?",
+            (workflow_id,),
+        )
+        run_count = (await cursor.fetchone())[0]
+        cursor = await self._db.execute(
+            "SELECT COUNT(*) FROM agent_workflow_runs WHERE workflow_id = ? AND status = 'success'",
+            (workflow_id,),
+        )
+        success_count = (await cursor.fetchone())[0]
+        cursor = await self._db.execute(
+            "SELECT revenue FROM agent_workflow_runs WHERE workflow_id = ? AND revenue IS NOT NULL",
+            (workflow_id,),
+        )
+        revenues = [r[0] for r in await cursor.fetchall()]
+        cursor = await self._db.execute(
+            "SELECT started_at FROM agent_workflow_runs WHERE workflow_id = ? ORDER BY id DESC LIMIT 1",
+            (workflow_id,),
+        )
+        last_row = await cursor.fetchone()
+        return {
+            "run_count": run_count,
+            "success_count": success_count,
+            "success_rate": round(success_count / run_count * 100) if run_count > 0 else 0,
+            "total_revenue": ", ".join(revenues) if revenues else None,
+            "last_run_at": last_row[0] if last_row else None,
+        }
 
     async def update_workflow(self, workflow_id: int, **fields) -> bool:
-        allowed = {"name", "trigger", "steps", "enabled"}
+        allowed = {"name", "trigger", "category", "description", "steps",
+                   "dependencies", "estimated_time", "estimated_value", "enabled"}
         fields = {k: v for k, v in fields.items() if k in allowed}
         if not fields:
             return False
@@ -628,6 +693,36 @@ class Database:
         )
         await self._db.commit()
         return cursor.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # agent workflow runs
+    # ------------------------------------------------------------------
+
+    async def add_workflow_run(
+        self, workflow_id: int, status: str = "running",
+        steps_completed: int = 0, total_steps: int = 0,
+        result_summary: str | None = None, revenue: str | None = None,
+        error_log: str | None = None,
+    ) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        finished = now if status in ("success", "partial", "failed") else None
+        cursor = await self._db.execute(
+            """INSERT INTO agent_workflow_runs
+               (workflow_id, status, steps_completed, total_steps,
+                result_summary, revenue, error_log, started_at, finished_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (workflow_id, status, steps_completed, total_steps,
+             result_summary, revenue, error_log, now, finished),
+        )
+        await self._db.commit()
+        return cursor.lastrowid
+
+    async def list_workflow_runs(self, workflow_id: int, limit: int = 20) -> list[dict]:
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_workflow_runs WHERE workflow_id = ? ORDER BY id DESC LIMIT ?",
+            (workflow_id, limit),
+        )
+        return [dict(r) for r in await cursor.fetchall()]
 
     # ------------------------------------------------------------------
     # agent self-report: upgrades
@@ -995,10 +1090,29 @@ CREATE TABLE IF NOT EXISTS agent_workflows (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,
     trigger TEXT NOT NULL DEFAULT 'manual',
+    category TEXT NOT NULL DEFAULT 'automation',
+    description TEXT,
     steps TEXT,
+    dependencies TEXT,
+    estimated_time INTEGER,
+    estimated_value TEXT,
     enabled BOOLEAN NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS agent_workflow_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    workflow_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    steps_completed INTEGER DEFAULT 0,
+    total_steps INTEGER DEFAULT 0,
+    result_summary TEXT,
+    revenue TEXT,
+    error_log TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    FOREIGN KEY (workflow_id) REFERENCES agent_workflows(id)
 );
 
 CREATE TABLE IF NOT EXISTS agent_upgrades (
