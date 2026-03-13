@@ -857,6 +857,97 @@ class Database:
         await self._db.commit()
 
     # ------------------------------------------------------------------
+    # scheduled tasks
+    # ------------------------------------------------------------------
+
+    async def create_scheduled_task(
+        self, name: str, cron_expr: str,
+        description: str | None = None,
+        command: str | None = None, workflow_id: int | None = None,
+        enabled: bool = True, next_run_at: str | None = None,
+    ) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            """INSERT INTO scheduled_tasks
+               (name, cron_expr, description, command, workflow_id, enabled, next_run_at, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
+            (name, cron_expr, description, command, workflow_id, enabled, next_run_at, now, now),
+        )
+        await self._db.commit()
+        return cursor.lastrowid
+
+    async def list_scheduled_tasks(self) -> list[dict]:
+        cursor = await self._db.execute(
+            "SELECT * FROM scheduled_tasks ORDER BY id DESC"
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def get_scheduled_task(self, task_id: int) -> dict | None:
+        cursor = await self._db.execute(
+            "SELECT * FROM scheduled_tasks WHERE id = ?", (task_id,)
+        )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def update_scheduled_task(self, task_id: int, **fields) -> bool:
+        if not fields:
+            return False
+        fields["updated_at"] = datetime.now(timezone.utc).isoformat()
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        vals = list(fields.values()) + [task_id]
+        cursor = await self._db.execute(
+            f"UPDATE scheduled_tasks SET {sets} WHERE id = ?", vals,
+        )
+        await self._db.commit()
+        return cursor.rowcount > 0
+
+    async def delete_scheduled_task(self, task_id: int) -> bool:
+        await self._db.execute(
+            "DELETE FROM scheduled_task_runs WHERE task_id = ?", (task_id,)
+        )
+        cursor = await self._db.execute(
+            "DELETE FROM scheduled_tasks WHERE id = ?", (task_id,)
+        )
+        await self._db.commit()
+        return cursor.rowcount > 0
+
+    async def add_scheduled_task_run(
+        self, task_id: int, status: str = "running",
+    ) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            """INSERT INTO scheduled_task_runs (task_id, status, started_at)
+               VALUES (?,?,?)""",
+            (task_id, status, now),
+        )
+        await self._db.commit()
+        return cursor.lastrowid
+
+    async def finish_scheduled_task_run(
+        self, run_id: int, status: str, output: str | None = None, error: str | None = None,
+    ) -> bool:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            "UPDATE scheduled_task_runs SET status = ?, output = ?, error = ?, finished_at = ? WHERE id = ?",
+            (status, output, error, now, run_id),
+        )
+        await self._db.commit()
+        return cursor.rowcount > 0
+
+    async def list_scheduled_task_runs(self, task_id: int, limit: int = 20) -> list[dict]:
+        cursor = await self._db.execute(
+            "SELECT * FROM scheduled_task_runs WHERE task_id = ? ORDER BY id DESC LIMIT ?",
+            (task_id, limit),
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def get_enabled_scheduled_tasks(self) -> list[dict]:
+        cursor = await self._db.execute(
+            "SELECT * FROM scheduled_tasks WHERE enabled = 1"
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    # ------------------------------------------------------------------
     # entities
     # ------------------------------------------------------------------
 
@@ -1142,5 +1233,31 @@ CREATE TABLE IF NOT EXISTS agent_config (
     key TEXT PRIMARY KEY,
     value TEXT NOT NULL,
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+CREATE TABLE IF NOT EXISTS scheduled_tasks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    cron_expr TEXT NOT NULL,
+    description TEXT,
+    command TEXT,
+    workflow_id INTEGER,
+    enabled BOOLEAN NOT NULL DEFAULT 1,
+    last_run_at TEXT,
+    next_run_at TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY (workflow_id) REFERENCES agent_workflows(id)
+);
+
+CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    task_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'running',
+    output TEXT,
+    error TEXT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id)
 );
 """

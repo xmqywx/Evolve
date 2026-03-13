@@ -912,6 +912,83 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "cleared"}
 
     # ------------------------------------------------------------------
+    # Scheduled Tasks
+    # ------------------------------------------------------------------
+
+    @app.get("/api/scheduled-tasks", dependencies=[Depends(verify_auth)])
+    async def list_scheduled_tasks():
+        tasks = await db.list_scheduled_tasks()
+        return {"tasks": tasks}
+
+    @app.post("/api/scheduled-tasks", dependencies=[Depends(verify_auth)])
+    async def create_scheduled_task(body: dict):
+        from myagent.cron_scheduler import CronScheduler
+        name = body.get("name", "").strip()
+        cron_expr = body.get("cron_expr", "").strip()
+        if not name or not cron_expr:
+            raise HTTPException(status_code=400, detail="name and cron_expr are required")
+        if not body.get("command", "").strip():
+            raise HTTPException(status_code=400, detail="command is required (full script path)")
+        # Validate cron expression
+        next_run = CronScheduler.compute_next_run(cron_expr)
+        if next_run is None:
+            raise HTTPException(status_code=400, detail="Invalid cron expression")
+        task_id = await db.create_scheduled_task(
+            name=name,
+            cron_expr=cron_expr,
+            description=body.get("description"),
+            command=body["command"].strip(),
+            workflow_id=body.get("workflow_id"),
+            enabled=body.get("enabled", True),
+            next_run_at=next_run,
+        )
+        return {"id": task_id, "next_run_at": next_run}
+
+    @app.get("/api/scheduled-tasks/{task_id}", dependencies=[Depends(verify_auth)])
+    async def get_scheduled_task(task_id: int):
+        task = await db.get_scheduled_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Not found")
+        return task
+
+    @app.patch("/api/scheduled-tasks/{task_id}", dependencies=[Depends(verify_auth)])
+    async def update_scheduled_task(task_id: int, body: dict):
+        allowed = {"name", "cron_expr", "description", "command", "workflow_id", "enabled"}
+        fields = {k: v for k, v in body.items() if k in allowed}
+        if "cron_expr" in fields:
+            from myagent.cron_scheduler import CronScheduler
+            next_run = CronScheduler.compute_next_run(fields["cron_expr"])
+            if next_run is None:
+                raise HTTPException(status_code=400, detail="Invalid cron expression")
+            fields["next_run_at"] = next_run
+        ok = await db.update_scheduled_task(task_id, **fields)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Not found")
+        return {"status": "updated"}
+
+    @app.delete("/api/scheduled-tasks/{task_id}", dependencies=[Depends(verify_auth)])
+    async def delete_scheduled_task(task_id: int):
+        ok = await db.delete_scheduled_task(task_id)
+        if not ok:
+            raise HTTPException(status_code=404, detail="Not found")
+        return {"status": "deleted"}
+
+    @app.get("/api/scheduled-tasks/{task_id}/runs", dependencies=[Depends(verify_auth)])
+    async def list_scheduled_task_runs(task_id: int, limit: int = Query(20)):
+        runs = await db.list_scheduled_task_runs(task_id, limit=limit)
+        return {"runs": runs}
+
+    @app.post("/api/scheduled-tasks/{task_id}/trigger", dependencies=[Depends(verify_auth)])
+    async def trigger_scheduled_task(task_id: int):
+        """Manually trigger a scheduled task immediately."""
+        task = await db.get_scheduled_task(task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail="Not found")
+        cron_sched = app.state.cron_scheduler
+        await cron_sched._execute(task)
+        return {"status": "triggered"}
+
+    # ------------------------------------------------------------------
     # Thinking
     # ------------------------------------------------------------------
 
@@ -1819,6 +1896,12 @@ async def run_server(config_path: str) -> None:
     review_task = asyncio.create_task(_daily_review_loop(app))
     backup_task = asyncio.create_task(_backup_loop(app))
 
+    # Start cron scheduler for scheduled tasks
+    from myagent.cron_scheduler import CronScheduler
+    cron_sched = CronScheduler(app.state.db)
+    app.state.cron_scheduler = cron_sched
+    cron_task = cron_sched.start()
+
     # Register existing survival tmux session (don't auto-start watchdog; user controls via UI)
     if config.survival.enabled:
         async def _check_survival():
@@ -1867,10 +1950,12 @@ async def run_server(config_path: str) -> None:
     finally:
         app.state.scheduler.stop()
         app.state.scanner.stop()
+        cron_sched.stop()
         loop_task.cancel()
         scanner_task.cancel()
         review_task.cancel()
         backup_task.cancel()
+        cron_task.cancel()
         if relay_task:
             app.state.relay_client.stop()
             relay_task.cancel()

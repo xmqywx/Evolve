@@ -1,46 +1,55 @@
-INFO:     Started server process [63440]
+2026-03-14 04:22:43,612 myagent.embedding INFO Connected to PostgreSQL with pgvector
+2026-03-14 04:22:43,612 myagent.server INFO claude-mem bridge connected: ~/.claude-mem/claude-mem.db
+2026-03-14 04:22:43,613 myagent.server INFO Proactive thinking system initialized
+2026-03-14 04:22:43,656 myagent.server INFO SQLite backup created: /Users/ying/Documents/MyAgent/backups/agent-2026-03-14.db
+2026-03-14 04:22:43,657 myagent.cron_scheduler INFO CronScheduler started
+INFO:     Started server process [61476]
 INFO:     Waiting for application startup.
+2026-03-14 04:22:43,670 myagent.profile_builder INFO ProfileBuilder starting (interval=4h)
+2026-03-14 04:22:43,834 myagent.ws_client INFO Connecting to relay: wss://agent.wdao.chat/ws
 INFO:     Application startup complete.
-ERROR:    [Errno 48] error while attempting to bind on address ('0.0.0.0INFO:     127.0.0.1:61147 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:61289 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62312 - "GET /tasks/task_20260310_144231_c1eae0 HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62312 - "GET /tasks HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62312 - "GET / HTTP/1.1" 200 OK
-INFO:     127.0.0.1:62312 - "GET / HTTP/1.1" 200 OK
-INFO:     Shutting down
-INFO:     Waiting for application shutdown.
-INFO:     Application shutdown complete.
-INFO:     Finished server process [63101]
-elf.parser)
-    ~~~~^^^^^^^^^^^^^
-StopIteration: Response(status_code=200, reason_phrase='Connection established', headers=Headers([]), body=b'', _exception=None)
-
-During handling of the above exception, another exception occurred:
-
-Traceback (most recent call last):
-  File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/selector_events.py", line 1023, in _read_ready__data_received
-    self._protocol.data_received(data)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
-  File "/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/websockets/asyncio/client.py", line 772, in data_received
-    self.run_parser()
-    ~~~~~~~~~~~~~~~^^
-  File "/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/websockets/asyncio/client.py", line 753, in run_parser
-    self.response.set_result(response)
-    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^
-asyncio.exceptions.InvalidStateError: invalid state
-Exception in callback _SelectorSocketTransport._call_connection_lost()
-handle: <Handle _SelectorSocketTransport._call_connection_lost()>
-Traceback (most recent call last):
-  File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/events.py", line 94, in _run
-    self._context.run(self._callback, *self._args)
-    ~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/selector_events.py", line 1196, in _call_connection_lost
-    super()._call_connection_lost(exc)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
-  File "/opt/homebrew/Cellar/python@3.14/3.14.2/Frameworks/Python.framework/Versions/3.14/lib/python3.14/asyncio/selector_events.py", line 907, in _call_connection_lost
-    self._protocol.connection_lost(exc)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
-  File "/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/websockets/asyncio/client.py", line 781, in connection_lost
-    self.response.set_exception(exc)
-    ~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^
-asyncio.exceptions.InvalidStateError: invalid state
+INFO:     Uvicorn running on http://0.0.0.0:3818 (Press CTRL+C to quit)
+2026-03-14 04:22:43,837 myagent.server INFO Existing survival tmux session found, registering
+2026-03-14 04:22:44,394 myagent.ws_client INFO Connected to relay, auth sent
+2026-03-14 04:22:51,366 watchfiles.main INFO 1 change detected
+INFO:     127.0.0.1:55397 - "GET /health HTTP/1.1" 200 OK
+2026-03-14 04:22:54,122 watchfiles.main INFO 2 changes detected
+2026-03-14 04:22:57,726 httpx INFO HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-14 04:23:06,859 httpx INFO HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-14 04:23:07,946 watchfiles.main INFO 2 changes detected
+2026-03-14 04:23:10,700 watchfiles.main INFO 1 change detected
+2026-03-14 04:23:16,819 httpx INFO HTTP Request: POST https://ark.cn-beijing.volces.com/api/v3/chat/completions "HTTP/1.1 200 OK"
+2026-03-14 04:23:16,821 myagent.profile_builder INFO ProfileBuilder scan complete: {'git': {'status': 'ok', 'repos': 2}, 'terminal': {'status': 'ok', 'commands': 200}, 'browser': {'status': 'ok', 'urls': 39}}
+2026-03-14 04:24:14,008 watchfiles.main INFO 1 change detected
+2026-03-14 04:24:18,292 watchfiles.main INFO 1 change detected
+INFO:     127.0.0.1:56024 - "GET /api/agent/prompt HTTP/1.1" 401 Unauthorized
+2026-03-14 04:24:21,082 watchfiles.main INFO 2 changes detected
+2026-03-14 04:24:24,012 watchfiles.main INFO 2 changes detected
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+INFO:     127.0.0.1:56103 - "POST /api/login HTTP/1.1" 200 OK
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+INFO:     127.0.0.1:56105 - "GET /api/agent/prompt HTTP/1.1" 200 OK
+2026-03-14 04:24:29,798 watchfiles.main INFO 3 changes detected
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+INFO:     127.0.0.1:56156 - "POST /api/login HTTP/1.1" 200 OK
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+INFO:     127.0.0.1:56158 - "GET /api/agent/prompt HTTP/1.1" 200 OK
+2026-03-14 04:24:36,162 watchfiles.main INFO 2 changes detected
+2026-03-14 04:24:39,923 watchfiles.main INFO 1 change detected
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+INFO:     127.0.0.1:56285 - "POST /api/login HTTP/1.1" 200 OK
+2026-03-14 04:24:57,288 watchfiles.main INFO 1 change detected
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:153: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  return self._jws.encode(
+INFO:     127.0.0.1:56417 - "POST /api/login HTTP/1.1" 200 OK
+/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/jwt/api_jwt.py:371: InsecureKeyLengthWarning: The HMAC key is 28 bytes long, which is below the minimum recommended length of 32 bytes for SHA256. See RFC 7518 Section 3.2.
+  decoded = self.decode_complete(
+INFO:     127.0.0.1:56421 - "GET /api/agent/prompt HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56423 - "PUT /api/agent/prompt HTTP/1.1" 200 OK
+2026-03-14 04:25:15,108 watchfiles.main INFO 2 changes detected
+2026-03-14 04:25:20,355 watchfiles.main INFO 2 changes detected

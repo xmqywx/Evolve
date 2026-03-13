@@ -13,6 +13,7 @@ import WorkflowsPage from './pages/Workflows';
 import CapabilitiesPage from './pages/Capabilities';
 import GuidePage from './pages/Guide';
 import PromptEditorPage from './pages/PromptEditor';
+import ScheduledTasksPage from './pages/ScheduledTasks';
 import SettingsPage from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -37,6 +38,7 @@ export default function App() {
         <Route path="memory" element={<MemoryPage />} />
         <Route path="guide" element={<GuidePage />} />
         <Route path="prompt" element={<PromptEditorPage />} />
+        <Route path="scheduled" element={<ScheduledTasksPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
