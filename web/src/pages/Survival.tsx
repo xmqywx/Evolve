@@ -60,6 +60,17 @@ export default function SurvivalPage() {
     term.open(termRef.current);
     setTimeout(() => fitAddon.fit(), 100);
     terminalRef.current = term; fitAddonRef.current = fitAddon;
+    // Allow Cmd+C to copy selected text instead of sending to terminal
+    term.attachCustomKeyEventHandler((e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'c' && term.hasSelection()) {
+        navigator.clipboard.writeText(term.getSelection());
+        return false; // prevent terminal from handling
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === 'v') {
+        return false; // let browser handle paste
+      }
+      return true;
+    });
     term.onData((data) => { const ws = wsRef.current; if (ws && ws.readyState === WebSocket.OPEN) ws.send(new TextEncoder().encode(data)); });
     const ro = new ResizeObserver(() => { fitAddon.fit(); sendResize(); });
     ro.observe(termRef.current);
