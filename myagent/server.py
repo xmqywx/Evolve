@@ -295,6 +295,7 @@ async def create_app(config_path: str) -> FastAPI:
         claude_settings=config.claude,
         feishu=feishu_client,
         settings=config.survival,
+        server_secret=config.server.secret,
         on_log=_broadcast_survival_log,
     )
 

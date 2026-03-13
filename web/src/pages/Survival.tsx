@@ -132,7 +132,7 @@ export default function SurvivalPage() {
   const isRunning = status?.running ?? false;
 
   return (
-    <div className="flex flex-col h-[calc(100vh-2rem)] gap-2">
+    <div className="flex flex-col gap-2" style={{ height: 'calc(100vh - 2rem)' }}>
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <h1 className="text-lg font-semibold">生存引擎</h1>

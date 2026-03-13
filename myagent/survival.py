@@ -45,12 +45,14 @@ class SurvivalEngine:
         claude_settings: ClaudeSettings,
         feishu: FeishuClient,
         settings: SurvivalSettings,
+        server_secret: str = "",
         on_log: Callable[[str, str, str], Awaitable[None]] | None = None,
     ) -> None:
         self._db = db
         self._claude = claude_settings
         self._feishu = feishu
         self._settings = settings
+        self._server_secret = server_secret
         self._on_log = on_log
         self._running = False
         self._workspace = Path(settings.workspace)
@@ -511,6 +513,11 @@ class SurvivalEngine:
         await self._run_cmd(
             f'tmux send-keys -t {TMUX_SESSION_NAME} "unset CLAUDECODE" Enter'
         )
+        if self._server_secret:
+            await self._run_cmd(
+                f'tmux send-keys -t {TMUX_SESSION_NAME} '
+                f'"export MYAGENT_TOKEN={self._server_secret}" Enter'
+            )
         await self._run_cmd(
             f'tmux send-keys -t {TMUX_SESSION_NAME} "cd {self._workspace}" Enter'
         )
