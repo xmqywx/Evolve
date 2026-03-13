@@ -587,13 +587,13 @@ class SurvivalEngine:
         self._claude_session_id = self._load_claude_session_id()
 
         code, output = await self._run_cmd(
-            f'tmux new-session -d -s {TMUX_SESSION_NAME} -x 200 -y 50'
+            f'tmux new-session -d -s {TMUX_SESSION_NAME}'
         )
         if code != 0:
             await self._log("error", f"tmux 启动失败: {output}")
             return {"status": "error", "error": output}
 
-        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size largest")
+        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size latest")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} aggressive-resize on")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} mouse on")
 
