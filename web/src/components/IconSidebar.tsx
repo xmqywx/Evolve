@@ -46,7 +46,7 @@ export default function IconSidebar() {
   return (
     <div
       className="flex flex-col h-screen w-14 border-r border-[var(--border)]
-                 bg-[var(--sidebar-bg)] shrink-0"
+                 bg-[var(--sidebar-bg)] shrink-0 overflow-visible"
     >
       {/* Logo */}
       <div className="flex items-center justify-center h-14 border-b border-[var(--border)]">
@@ -54,7 +54,7 @@ export default function IconSidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto">
+      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto overflow-x-hidden">
         {navItems.map((item) => (
           <button
             key={item.path}
