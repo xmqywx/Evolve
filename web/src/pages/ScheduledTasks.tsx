@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import {
   RefreshCw, Trash2, Clock, Play, Pause, ChevronDown, ChevronRight,
-  Plus, X, Zap,
+  Plus, X, Zap, Loader2,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
@@ -49,15 +49,15 @@ function StatusBadge({ enabled }: { enabled: boolean }) {
 }
 
 function RunStatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; fg: string }> = {
-    success: { bg: 'rgba(52,211,153,0.15)', fg: 'rgb(52,211,153)' },
-    failed: { bg: 'rgba(248,113,113,0.15)', fg: 'rgb(248,113,113)' },
-    running: { bg: 'rgba(96,165,250,0.15)', fg: 'rgb(96,165,250)' },
+  const colors: Record<string, { bg: string; fg: string; label: string }> = {
+    success: { bg: 'rgba(52,211,153,0.15)', fg: 'rgb(52,211,153)', label: '成功' },
+    failed: { bg: 'rgba(248,113,113,0.15)', fg: 'rgb(248,113,113)', label: '失败' },
+    running: { bg: 'rgba(96,165,250,0.15)', fg: 'rgb(96,165,250)', label: '执行中' },
   };
   const c = colors[status] || colors.running;
   return (
-    <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: c.bg, color: c.fg }}>
-      {status}
+    <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: c.bg, color: c.fg }}>
+      {c.label}
     </span>
   );
 }
@@ -68,6 +68,8 @@ export default function ScheduledTasksPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [runs, setRuns] = useState<TaskRun[]>([]);
   const [runsLoading, setRunsLoading] = useState(false);
+  const [expandedRunId, setExpandedRunId] = useState<number | null>(null);
+  const [triggeringId, setTriggeringId] = useState<number | null>(null);
   const [showCreate, setShowCreate] = useState(false);
 
   // Create form
@@ -106,13 +108,17 @@ export default function ScheduledTasksPage() {
     } catch { /* */ }
   };
 
-  const triggerTask = async (id: number) => {
+  const triggerTask = async (task: ScheduledTask) => {
+    setTriggeringId(task.id);
     try {
-      await apiFetch(`/api/scheduled-tasks/${id}/trigger`, { method: 'POST' });
-      // Refresh runs if expanded
-      if (expandedId === id) loadRuns(id);
+      await apiFetch(`/api/scheduled-tasks/${task.id}/trigger`, { method: 'POST' });
+      // Auto-expand to show result
+      setExpandedId(task.id);
+      await loadRuns(task.id);
       fetchTasks();
-    } catch { /* */ }
+    } catch { /* */ } finally {
+      setTriggeringId(null);
+    }
   };
 
   const loadRuns = async (taskId: number) => {
@@ -126,8 +132,10 @@ export default function ScheduledTasksPage() {
   const toggleExpand = (id: number) => {
     if (expandedId === id) {
       setExpandedId(null);
+      setExpandedRunId(null);
     } else {
       setExpandedId(id);
+      setExpandedRunId(null);
       loadRuns(id);
     }
   };
@@ -226,7 +234,9 @@ export default function ScheduledTasksPage() {
         </div>
       ) : (
         <div className="space-y-2">
-          {tasks.map(task => (
+          {tasks.map(task => {
+            const isTriggering = triggeringId === task.id;
+            return (
             <div key={task.id} className="rounded-lg overflow-hidden"
               style={{ border: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
               {/* Task header */}
@@ -262,9 +272,9 @@ export default function ScheduledTasksPage() {
                   </div>
                 </div>
                 <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => triggerTask(task.id)} title="立即执行"
-                    className="p-1 rounded" style={{ color: 'rgb(52,211,153)' }}>
-                    <Zap size={13} />
+                  <button onClick={() => triggerTask(task)} title="立即执行" disabled={isTriggering}
+                    className="p-1 rounded" style={{ color: isTriggering ? 'var(--text-muted)' : 'rgb(52,211,153)' }}>
+                    {isTriggering ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
                   </button>
                   <button onClick={() => toggleEnabled(task)} title={task.enabled ? '禁用' : '启用'}
                     className="p-1 rounded" style={{ color: task.enabled ? 'var(--accent)' : 'var(--text-muted)' }}>
@@ -280,8 +290,13 @@ export default function ScheduledTasksPage() {
               {/* Expanded: run history */}
               {expandedId === task.id && (
                 <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
-                  <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                    执行记录
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
+                      执行记录
+                    </div>
+                    <button onClick={() => loadRuns(task.id)} className="p-0.5 rounded" style={{ color: 'var(--text-muted)' }}>
+                      <RefreshCw size={11} className={runsLoading ? 'animate-spin' : ''} />
+                    </button>
                   </div>
                   {runsLoading ? (
                     <div className="flex justify-center py-3">
@@ -293,34 +308,82 @@ export default function ScheduledTasksPage() {
                     </div>
                   ) : (
                     <div className="space-y-1.5">
-                      {runs.map(run => (
-                        <div key={run.id} className="flex items-start gap-2 text-xs px-2 py-1.5 rounded"
-                          style={{ background: 'var(--surface)' }}>
-                          <RunStatusBadge status={run.status} />
-                          <span style={{ color: 'var(--text-muted)' }}>{formatTime(run.started_at)}</span>
-                          {run.finished_at && (
-                            <span style={{ color: 'var(--text-muted)' }}>
-                              → {formatTime(run.finished_at)}
-                            </span>
-                          )}
-                          {run.error && (
-                            <span className="truncate" style={{ color: 'rgb(248,113,113)' }} title={run.error}>
-                              {run.error}
-                            </span>
-                          )}
-                          {run.output && !run.error && (
-                            <span className="truncate" style={{ color: 'var(--text-secondary)' }} title={run.output}>
-                              {run.output.slice(0, 100)}
-                            </span>
-                          )}
-                        </div>
-                      ))}
+                      {runs.map(run => {
+                        const isRunExpanded = expandedRunId === run.id;
+                        const hasDetail = !!(run.output || run.error);
+                        return (
+                          <div key={run.id} className="rounded overflow-hidden"
+                            style={{ background: 'var(--surface)' }}>
+                            {/* Run summary row */}
+                            <div
+                              className={`flex items-center gap-2 text-xs px-2 py-1.5 ${hasDetail ? 'cursor-pointer' : ''}`}
+                              onClick={() => hasDetail && setExpandedRunId(isRunExpanded ? null : run.id)}
+                            >
+                              {hasDetail && (
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  {isRunExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
+                                </span>
+                              )}
+                              <RunStatusBadge status={run.status} />
+                              <span style={{ color: 'var(--text-muted)' }}>{formatTime(run.started_at)}</span>
+                              {run.finished_at && (
+                                <span style={{ color: 'var(--text-muted)' }}>
+                                  → {formatTime(run.finished_at)}
+                                </span>
+                              )}
+                              {run.error && !isRunExpanded && (
+                                <span className="truncate flex-1" style={{ color: 'rgb(248,113,113)' }}>
+                                  {run.error.split('\n')[0].slice(0, 80)}
+                                </span>
+                              )}
+                              {run.output && !run.error && !isRunExpanded && (
+                                <span className="truncate flex-1" style={{ color: 'var(--text-secondary)' }}>
+                                  {run.output.split('\n')[0].slice(0, 80)}
+                                </span>
+                              )}
+                              {!hasDetail && (
+                                <span className="flex-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                                  无输出
+                                </span>
+                              )}
+                            </div>
+                            {/* Run detail */}
+                            {isRunExpanded && hasDetail && (
+                              <div className="px-2 pb-2">
+                                {run.error && (
+                                  <div className="mt-1">
+                                    <div className="text-[10px] font-medium mb-0.5" style={{ color: 'rgb(248,113,113)' }}>
+                                      错误
+                                    </div>
+                                    <pre className="text-[11px] font-mono p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap"
+                                      style={{ background: 'rgba(248,113,113,0.08)', color: 'rgb(248,113,113)' }}>
+                                      {run.error}
+                                    </pre>
+                                  </div>
+                                )}
+                                {run.output && (
+                                  <div className="mt-1">
+                                    <div className="text-[10px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
+                                      输出
+                                    </div>
+                                    <pre className="text-[11px] font-mono p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap"
+                                      style={{ background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>
+                                      {run.output}
+                                    </pre>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
