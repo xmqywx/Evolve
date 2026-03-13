@@ -9,6 +9,9 @@ import TasksPage from './pages/Tasks';
 import MemoryPage from './pages/Memory';
 import ChatPage from './pages/Chat';
 import SurvivalPage from './pages/Survival';
+import OutputPage from './pages/Output';
+import WorkflowsPage from './pages/Workflows';
+import CapabilitiesPage from './pages/Capabilities';
 
 function Placeholder({ name }: { name: string }) {
   return (
@@ -16,7 +19,7 @@ function Placeholder({ name }: { name: string }) {
       <h1 className="text-xl font-semibold mb-4">{name}</h1>
       <div className="flex items-center gap-2 text-[var(--text-secondary)]">
         <Construction size={16} />
-        <p>即将上线，Phase 4 完成后开放。</p>
+        <p>即将上线。</p>
       </div>
     </div>
   );
@@ -37,9 +40,9 @@ export default function App() {
         <Route path="sessions/:id" element={<SessionsPage />} />
         <Route path="chat" element={<ChatPage />} />
         <Route path="survival" element={<SurvivalPage />} />
-        <Route path="output" element={<Placeholder name="产出" />} />
-        <Route path="workflows" element={<Placeholder name="工作流" />} />
-        <Route path="capabilities" element={<Placeholder name="能力" />} />
+        <Route path="output" element={<OutputPage />} />
+        <Route path="workflows" element={<WorkflowsPage />} />
+        <Route path="capabilities" element={<CapabilitiesPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="memory" element={<MemoryPage />} />
         <Route path="settings" element={<Placeholder name="设置" />} />
