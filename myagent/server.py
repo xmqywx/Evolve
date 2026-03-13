@@ -121,6 +121,62 @@ class SurvivalProjectUpdate(BaseModel):
     notes: str | None = None
 
 
+class HeartbeatRequest(BaseModel):
+    activity: str
+    description: str | None = None
+    task_ref: str | None = None
+    progress_pct: int | None = None
+    eta_minutes: int | None = None
+
+
+class DeliverableRequest(BaseModel):
+    title: str
+    type: str = "code"
+    status: str = "draft"
+    path: str | None = None
+    summary: str | None = None
+    repo: str | None = None
+    value_estimate: str | None = None
+
+
+class DeliverableUpdateRequest(BaseModel):
+    status: str | None = None
+    title: str | None = None
+    summary: str | None = None
+
+
+class DiscoveryRequest(BaseModel):
+    title: str
+    category: str = "insight"
+    content: str | None = None
+    actionable: bool = False
+    priority: str = "medium"
+
+
+class WorkflowRequest(BaseModel):
+    name: str
+    trigger: str = "manual"
+    steps: list[dict] | None = None
+    enabled: bool = False
+
+
+class UpgradeRequest(BaseModel):
+    proposal: str
+    reason: str | None = None
+    risk: str = "low"
+    impact: str | None = None
+
+
+class ReviewRequest(BaseModel):
+    period: str
+    accomplished: list[str] | None = None
+    failed: list[str] | None = None
+    learned: list[str] | None = None
+    next_priorities: list[str] | None = None
+    tokens_used: int | None = None
+    cost_estimate: str | None = None
+
+
 # ------------------------------------------------------------------
 # Auth dependency (supports both JWT and legacy Bearer secret)
 # ------------------------------------------------------------------
@@ -593,13 +649,6 @@ async def create_app(config_path: str) -> FastAPI:
     # Agent Self-Report API (Phase 3)
     # ------------------------------------------------------------------
 
-    class HeartbeatRequest(BaseModel):
-        activity: str
-        description: str | None = None
-        task_ref: str | None = None
-        progress_pct: int | None = None
-        eta_minutes: int | None = None
-
     @app.post("/api/agent/heartbeat", dependencies=[Depends(verify_auth)])
     async def agent_heartbeat(req: HeartbeatRequest):
         hb_id = await db.add_heartbeat(
@@ -615,15 +664,6 @@ async def create_app(config_path: str) -> FastAPI:
             hb = await db.get_latest_heartbeat()
             return hb or {}
         return await db.list_heartbeats(limit=limit)
-
-    class DeliverableRequest(BaseModel):
-        title: str
-        type: str = "code"
-        status: str = "draft"
-        path: str | None = None
-        summary: str | None = None
-        repo: str | None = None
-        value_estimate: str | None = None
 
     @app.post("/api/agent/deliverable", dependencies=[Depends(verify_auth)])
     async def agent_deliverable(req: DeliverableRequest):
@@ -641,11 +681,6 @@ async def create_app(config_path: str) -> FastAPI:
     ):
         return await db.list_deliverables(type=type, status=status, limit=limit)
 
-    class DeliverableUpdateRequest(BaseModel):
-        status: str | None = None
-        title: str | None = None
-        summary: str | None = None
-
     @app.patch("/api/agent/deliverables/{deliverable_id}", dependencies=[Depends(verify_auth)])
     async def update_deliverable(deliverable_id: int, req: DeliverableUpdateRequest):
         fields = {k: v for k, v in req.model_dump().items() if v is not None}
@@ -653,13 +688,6 @@ async def create_app(config_path: str) -> FastAPI:
         if not ok:
             raise HTTPException(status_code=404, detail="Deliverable not found")
         return {"status": "ok"}
-
-    class DiscoveryRequest(BaseModel):
-        title: str
-        category: str = "insight"
-        content: str | None = None
-        actionable: bool = False
-        priority: str = "medium"
 
     @app.post("/api/agent/discovery", dependencies=[Depends(verify_auth)])
     async def agent_discovery(req: DiscoveryRequest):
@@ -675,12 +703,6 @@ async def create_app(config_path: str) -> FastAPI:
         limit: int = Query(50),
     ):
         return await db.list_discoveries(category=category, priority=priority, limit=limit)
-
-    class WorkflowRequest(BaseModel):
-        name: str
-        trigger: str = "manual"
-        steps: list[dict] | None = None
-        enabled: bool = False
 
     @app.post("/api/agent/workflow", dependencies=[Depends(verify_auth)])
     async def agent_workflow(req: WorkflowRequest):
@@ -703,12 +725,6 @@ async def create_app(config_path: str) -> FastAPI:
             raise HTTPException(status_code=404, detail="Workflow not found")
         return {"status": "ok"}
 
-    class UpgradeRequest(BaseModel):
-        proposal: str
-        reason: str | None = None
-        risk: str = "low"
-        impact: str | None = None
-
     @app.post("/api/agent/upgrade", dependencies=[Depends(verify_auth)])
     async def agent_upgrade(req: UpgradeRequest):
         u_id = await db.add_upgrade(
@@ -730,15 +746,6 @@ async def create_app(config_path: str) -> FastAPI:
         if not ok:
             raise HTTPException(status_code=404, detail="Upgrade not found")
         return {"status": "ok"}
-
-    class ReviewRequest(BaseModel):
-        period: str
-        accomplished: list[str] | None = None
-        failed: list[str] | None = None
-        learned: list[str] | None = None
-        next_priorities: list[str] | None = None
-        tokens_used: int | None = None
-        cost_estimate: str | None = None
 
     @app.post("/api/agent/review", dependencies=[Depends(verify_auth)])
     async def agent_review(req: ReviewRequest):
