@@ -11,6 +11,8 @@ import {
   Brain,
   Settings,
   LogOut,
+  BookOpen,
+  FileEdit,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { logout } from '../utils/api';
@@ -31,6 +33,8 @@ const navItems: NavItem[] = [
   { path: '/capabilities', icon: <SlidersHorizontal size={20} />, label: '能力' },
   { path: '/tasks', icon: <ClipboardList size={20} />, label: '任务' },
   { path: '/memory', icon: <Brain size={20} />, label: '记忆' },
+  { path: '/prompt', icon: <FileEdit size={20} />, label: 'Prompt' },
+  { path: '/guide', icon: <BookOpen size={20} />, label: '指南' },
   { path: '/settings', icon: <Settings size={20} />, label: '设置' },
 ];
 

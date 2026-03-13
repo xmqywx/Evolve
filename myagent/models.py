@@ -61,6 +61,9 @@ class SessionInfo(BaseModel):
     last_active: datetime
     status: SessionStatus = SessionStatus.ACTIVE
     is_wrapped: bool = False
+    alias: str | None = None
+    color: str | None = None
+    archived: bool = False
 
 
 class Message(BaseModel):

@@ -1,3 +1,4 @@
+"""Tests for web API endpoints (React SPA served separately)."""
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient, ASGITransport
@@ -41,53 +42,47 @@ postgres:
 
 
 @pytest.mark.asyncio
-async def test_dashboard(web_app):
-    transport = ASGITransport(app=web_app)
-    async with AsyncClient(transport=transport, base_url="http://test", cookies={"token": "test"}) as client:
-        resp = await client.get("/")
-        assert resp.status_code == 200
-        assert "MyAgent" in resp.text
-        assert "控制台" in resp.text
-
-
-@pytest.mark.asyncio
-async def test_dashboard_requires_auth(web_app):
+async def test_health(web_app):
     transport = ASGITransport(app=web_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.get("/", follow_redirects=False)
-        assert resp.status_code == 307
-
-
-@pytest.mark.asyncio
-async def test_tasks_page(web_app):
-    transport = ASGITransport(app=web_app)
-    async with AsyncClient(transport=transport, base_url="http://test", cookies={"token": "test"}) as client:
-        resp = await client.get("/tasks")
+        resp = await client.get("/health")
         assert resp.status_code == 200
-        assert "任务列表" in resp.text
+        assert resp.json()["status"] == "ok"
 
 
 @pytest.mark.asyncio
-async def test_memory_page(web_app):
-    transport = ASGITransport(app=web_app)
-    async with AsyncClient(transport=transport, base_url="http://test", cookies={"token": "test"}) as client:
-        resp = await client.get("/memory")
-        assert resp.status_code == 200
-        assert "记忆搜索" in resp.text
-
-
-@pytest.mark.asyncio
-async def test_web_submit(web_app):
+async def test_login(web_app):
     transport = ASGITransport(app=web_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
-        resp = await client.post("/web/submit", data={"prompt": "test task from web"})
+        resp = await client.post("/api/login", json={"secret": "test"})
         assert resp.status_code == 200
-        assert "已提交" in resp.text
+        assert "token" in resp.json()
 
 
 @pytest.mark.asyncio
-async def test_task_detail_404(web_app):
+async def test_login_wrong(web_app):
     transport = ASGITransport(app=web_app)
-    async with AsyncClient(transport=transport, base_url="http://test", cookies={"token": "test"}) as client:
-        resp = await client.get("/tasks/nonexistent")
-        assert resp.status_code == 404
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post("/api/login", json={"secret": "wrong"})
+        assert resp.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_sessions_api(web_app):
+    transport = ASGITransport(app=web_app)
+    async with AsyncClient(transport=transport, base_url="http://test",
+                           headers={"Authorization": "Bearer test"}) as client:
+        resp = await client.get("/api/sessions")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+
+@pytest.mark.asyncio
+async def test_status_includes_sessions(web_app):
+    transport = ASGITransport(app=web_app)
+    async with AsyncClient(transport=transport, base_url="http://test",
+                           headers={"Authorization": "Bearer test"}) as client:
+        resp = await client.get("/api/status")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert "active_sessions" in data

@@ -25,7 +25,7 @@ class SchedulerSettings(BaseModel):
 
 class ServerSettings(BaseModel):
     host: str = "0.0.0.0"
-    port: int = 8090
+    port: int = 3818
     secret: str = "change-me"
 
 
@@ -57,10 +57,48 @@ class PostgresSettings(BaseModel):
     enabled: bool = True
 
 
+class ClaudeMemSettings(BaseModel):
+    db_path: str = "~/.claude-mem/claude-mem.db"
+    enabled: bool = True
+
+
+class ThinkingSettings(BaseModel):
+    daily_review_enabled: bool = True
+    daily_review_hour: int = 8  # 24h format, local time
+    daily_review_minute: int = 0
+
+
 class ScannerSettings(BaseModel):
     process_interval: int = 5
     claude_projects_dir: str = "~/.claude/projects"
     max_messages_cached: int = 200
+
+
+class ChatSettings(BaseModel):
+    max_messages_before_rotate: int = 50
+    context_max_tokens: int = 2000
+    persona_files: list[str] = [
+        "persona/identity.md",
+        "persona/about_ying.md",
+        "persona/principles.md",
+    ]
+
+
+class SurvivalSettings(BaseModel):
+    enabled: bool = True
+    workspace: str = "/Users/ying/Documents/superTask/survival_workspace"
+    notify_feishu: bool = True
+
+
+class ProfileSettings(BaseModel):
+    slack_token: str = ""
+    slack_enabled: bool = False
+    wechat_enabled: bool = False
+    wechat_key: str = ""
+    git_scan_enabled: bool = True
+    terminal_history_enabled: bool = True
+    browser_history_enabled: bool = True
+    scan_interval_hours: int = 4
 
 
 class JWTSettings(BaseModel):
@@ -78,6 +116,11 @@ class AgentConfig(BaseModel):
     doubao: DoubaoSettings = DoubaoSettings()
     postgres: PostgresSettings = PostgresSettings()
     scanner: ScannerSettings = ScannerSettings()
+    claude_mem: ClaudeMemSettings = ClaudeMemSettings()
+    thinking: ThinkingSettings = ThinkingSettings()
+    chat: ChatSettings = ChatSettings()
+    survival: SurvivalSettings = SurvivalSettings()
+    profile: ProfileSettings = ProfileSettings()
     jwt: JWTSettings = JWTSettings()
 
 

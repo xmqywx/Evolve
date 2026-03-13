@@ -22,6 +22,7 @@ SEARCH = "search"        # Search request -> DuckDuckGo + AI
 SYSTEM_PATTERNS = {
     r"(查看|查询)?(状态|运行情况|status)": "status",
     r"(查看|有哪些|列出)?(任务|任务列表|tasks|list)": "list_tasks",
+    r"(我的|查看|有哪些)?(会话|session)": "sessions",
     r"^(取消|cancel)\s*(.*)$": "cancel",
     r"^(重试|retry)\s*(.*)$": "retry",
 }
@@ -122,6 +123,6 @@ class MessageRouter:
         content = await self._doubao.chat(prompt, max_tokens=20, temperature=0.1)
         if content:
             content = content.strip().lower()
-            if content in ("status", "list_tasks", "cancel", "retry"):
+            if content in ("status", "list_tasks", "cancel", "retry", "sessions", "session_detail"):
                 return content
         return None

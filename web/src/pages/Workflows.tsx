@@ -13,7 +13,6 @@ import {
   XCircle,
   Terminal as TerminalIcon,
   Globe,
-  MousePointer,
   FileCode,
   Hand,
   TrendingUp,

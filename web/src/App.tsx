@@ -12,6 +12,8 @@ import SurvivalPage from './pages/Survival';
 import OutputPage from './pages/Output';
 import WorkflowsPage from './pages/Workflows';
 import CapabilitiesPage from './pages/Capabilities';
+import GuidePage from './pages/Guide';
+import PromptEditorPage from './pages/PromptEditor';
 
 function Placeholder({ name }: { name: string }) {
   return (
@@ -45,6 +47,8 @@ export default function App() {
         <Route path="capabilities" element={<CapabilitiesPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="memory" element={<MemoryPage />} />
+        <Route path="guide" element={<GuidePage />} />
+        <Route path="prompt" element={<PromptEditorPage />} />
         <Route path="settings" element={<Placeholder name="设置" />} />
       </Route>
     </Routes>

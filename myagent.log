@@ -7,9 +7,11 @@ INFO:     127.0.0.1:62312 - "GET /tasks/task_20260310_144231_c1eae0 HTTP/1.1" 20
 INFO:     127.0.0.1:62312 - "GET /tasks HTTP/1.1" 200 OK
 INFO:     127.0.0.1:62312 - "GET / HTTP/1.1" 200 OK
 INFO:     127.0.0.1:62312 - "GET / HTTP/1.1" 200 OK
- call last):
-  File "/Users/ying/Documents/MyAgent/.venv/lib/python3.14/site-packages/websockets/asyncio/client.py", line 749, in run_parser
-    next(self.parser)
+INFO:     Shutting down
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+INFO:     Finished server process [63101]
+elf.parser)
     ~~~~^^^^^^^^^^^^^
 StopIteration: Response(status_code=200, reason_phrase='Connection established', headers=Headers([]), body=b'', _exception=None)
 

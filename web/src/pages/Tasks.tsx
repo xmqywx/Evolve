@@ -7,7 +7,6 @@ import {
   CheckCircle,
   AlertTriangle,
   XCircle,
-  Send,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { Task } from '../utils/types';

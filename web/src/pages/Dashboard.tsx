@@ -19,7 +19,6 @@ import {
   X,
   Play,
   BookOpen,
-  Server,
   MessageSquare,
   Calendar,
   Cpu,
@@ -131,10 +130,8 @@ export default function DashboardPage() {
 
   /* derived stats */
   const activeSessions = sessions.filter((s) => s.status === 'active').length;
-  const totalSessions = sessions.length;
   const runningTasks = tasks.filter((t) => t.status === 'running').length;
   const doneTasks = tasks.filter((t) => t.status === 'done').length;
-  const failedTasks = tasks.filter((t) => t.status === 'failed').length;
   const totalTasks = tasks.length;
   const memories = memStats?.myagent?.memories ?? 0;
   const observations = memStats?.claude_mem?.total_observations ?? 0;

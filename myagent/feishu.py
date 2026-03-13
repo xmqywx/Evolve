@@ -136,6 +136,44 @@ class FeishuClient:
             logger.exception("Failed to send Feishu text")
             return False
 
+    async def send_text_chunked(self, text: str, *, chunk_size: int = 3000) -> bool:
+        """Send long text by splitting into multiple messages.
+
+        Feishu webhook has message size limits. This splits at line
+        boundaries to avoid cutting mid-sentence.
+        """
+        if not text.strip():
+            return False
+        if len(text) <= chunk_size:
+            return await self.send_text(text)
+
+        lines = text.split("\n")
+        chunks: list[str] = []
+        current: list[str] = []
+        current_len = 0
+
+        for line in lines:
+            line_len = len(line) + 1  # +1 for newline
+            if current_len + line_len > chunk_size and current:
+                chunks.append("\n".join(current))
+                current = [line]
+                current_len = line_len
+            else:
+                current.append(line)
+                current_len += line_len
+
+        if current:
+            chunks.append("\n".join(current))
+
+        total = len(chunks)
+        all_ok = True
+        for i, chunk in enumerate(chunks, 1):
+            prefix = f"[{i}/{total}] " if total > 1 else ""
+            ok = await self.send_text(f"{prefix}{chunk}")
+            if not ok:
+                all_ok = False
+        return all_ok
+
 
 def build_task_card(
     task_id: str,
@@ -187,6 +225,53 @@ def build_task_card(
         "header": {
             "template": template,
             "title": {"tag": "plain_text", "content": f"{emoji} {prompt[:60]}"},
+        },
+        "elements": elements,
+    }
+
+
+def build_sessions_card(sessions: list) -> dict:
+    """Build a Feishu card showing active Claude sessions."""
+    if not sessions:
+        return {
+            "header": {
+                "template": "grey",
+                "title": {"tag": "plain_text", "content": "Claude Sessions - No Active Sessions"},
+            },
+            "elements": [
+                {"tag": "div", "text": {"tag": "lark_md", "content": "No active Claude Code sessions found."}},
+            ],
+        }
+
+    elements: list[dict] = []
+    elements.append({
+        "tag": "div",
+        "text": {"tag": "lark_md", "content": f"**Active Sessions: {len(sessions)}**"},
+    })
+    elements.append({"tag": "hr"})
+
+    for s in sessions:
+        project = s.get("project", "unknown") if isinstance(s, dict) else getattr(s, "project", "unknown")
+        cwd = s.get("cwd", "") if isinstance(s, dict) else getattr(s, "cwd", "")
+        status = s.get("status", "active") if isinstance(s, dict) else getattr(s, "status", "active")
+        pid = s.get("pid", "") if isinstance(s, dict) else getattr(s, "pid", "")
+
+        status_icon = {"active": "[Running]", "idle": "[Idle]", "finished": "[Done]"}.get(str(status), "[?]")
+        elements.append({
+            "tag": "div",
+            "text": {"tag": "lark_md", "content": f"{status_icon} **{project}**\n`{cwd}` | PID: {pid}"},
+        })
+
+    elements.append({"tag": "hr"})
+    elements.append({
+        "tag": "note",
+        "elements": [{"tag": "plain_text", "content": "MyAgent Session Monitor"}],
+    })
+
+    return {
+        "header": {
+            "template": "blue",
+            "title": {"tag": "plain_text", "content": f"Claude Sessions ({len(sessions)} active)"},
         },
         "elements": elements,
     }

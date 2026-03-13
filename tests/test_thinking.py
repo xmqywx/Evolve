@@ -49,3 +49,24 @@ async def test_proactive_disabled_returns_none(disabled_doubao):
     pt = ProactiveThinking(db, disabled_doubao, feishu, memory)
     result = await pt.daily_review()
     assert result is None
+
+
+def test_thinking_settings_defaults():
+    from myagent.config import ThinkingSettings
+    ts = ThinkingSettings()
+    assert ts.daily_review_enabled is True
+    assert ts.daily_review_hour == 8
+    assert ts.daily_review_minute == 0
+
+
+def test_thinking_settings_in_config():
+    from myagent.config import AgentConfig, AgentSettings, ClaudeSettings, SchedulerSettings, ServerSettings
+    config = AgentConfig(
+        agent=AgentSettings(name="test", data_dir="/tmp", db_path="/tmp/test.db"),
+        claude=ClaudeSettings(),
+        scheduler=SchedulerSettings(),
+        server=ServerSettings(),
+        thinking={"daily_review_hour": 9, "daily_review_minute": 30},
+    )
+    assert config.thinking.daily_review_hour == 9
+    assert config.thinking.daily_review_minute == 30

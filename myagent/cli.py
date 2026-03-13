@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import os
 import sys
@@ -9,7 +10,7 @@ import sys
 import httpx
 
 
-DEFAULT_BASE_URL = "http://127.0.0.1:8090"
+DEFAULT_BASE_URL = "http://127.0.0.1:3818"
 DEFAULT_SECRET = ""
 
 
@@ -43,6 +44,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
     # status
     sub.add_parser("status", help="Show scheduler status")
+
+    # sessions
+    sub.add_parser("sessions", help="List active Claude sessions")
+
+    # wrap - run claude through myagent wrapper
+    p_wrap = sub.add_parser("wrap", help="Run claude through myagent wrapper for monitoring")
+    p_wrap.add_argument("claude_args", nargs=argparse.REMAINDER, help="Arguments to pass to claude")
 
     return parser.parse_args(argv)
 
@@ -98,6 +106,33 @@ def main(argv: list[str] | None = None) -> None:
             resp = client.get("/api/status")
             resp.raise_for_status()
             print(json.dumps(resp.json(), indent=2))
+
+        elif args.command == "sessions":
+            resp = client.get("/api/sessions")
+            resp.raise_for_status()
+            sessions = resp.json()
+            if not sessions:
+                print("No active sessions.")
+            else:
+                for s in sessions:
+                    status = s.get("status", "?")
+                    project = s.get("project", "unknown")
+                    cwd = s.get("cwd", "")
+                    pid = s.get("pid", "")
+                    print(f"  [{status}] {project} | {cwd} (PID: {pid})")
+
+        elif args.command == "wrap":
+            from myagent.wrapper import run_wrapper
+            claude_args = args.claude_args
+            # Remove leading '--' if present
+            if claude_args and claude_args[0] == "--":
+                claude_args = claude_args[1:]
+            asyncio.run(run_wrapper(
+                claude_args=claude_args,
+                server_url=args.url,
+                secret=args.secret,
+            ))
+            return  # run_wrapper calls sys.exit
 
     except httpx.HTTPStatusError as e:
         print(f"Error: {e.response.status_code} - {e.response.text}", file=sys.stderr)

@@ -11,7 +11,6 @@ import {
   X,
   Loader,
   Terminal,
-  ChevronDown,
   StopCircle,
 } from 'lucide-react';
 import { List, useDynamicRowHeight, useListRef } from 'react-window';

@@ -181,6 +181,10 @@ class UpgradeRequest(BaseModel):
     impact: str | None = None
 
 
+class PromptTemplateBody(BaseModel):
+    template: str = ""
+
+
 class ReviewRequest(BaseModel):
     period: str
     accomplished: list[str] | None = None
@@ -820,6 +824,38 @@ async def create_app(config_path: str) -> FastAPI:
         items = {k: str(v) for k, v in body.items()}
         await db.set_agent_config_bulk(items)
         return await db.get_agent_config()
+
+    # ------------------------------------------------------------------
+    # Prompt template management
+    # ------------------------------------------------------------------
+
+    @app.get("/api/agent/prompt", dependencies=[Depends(verify_auth)])
+    async def get_prompt_template():
+        config_map = await db.get_agent_config()
+        custom = config_map.get("survival_prompt", "")
+        default_tpl = survival_engine._get_default_template() if survival_engine else ""
+        tpl = custom if custom else default_tpl
+        # Render with current variables
+        variables = await survival_engine._get_template_variables() if survival_engine else {}
+        try:
+            rendered = tpl.format(**variables)
+        except (KeyError, IndexError):
+            rendered = tpl
+        return {
+            "template": tpl,
+            "default_template": default_tpl,
+            "variables": {k: v[:200] if isinstance(v, str) else str(v) for k, v in variables.items()},
+            "rendered": rendered,
+        }
+
+    @app.put("/api/agent/prompt", dependencies=[Depends(verify_auth)])
+    async def put_prompt_template(body: PromptTemplateBody):
+        if body.template.strip():
+            await db.set_agent_config_bulk({"survival_prompt": body.template})
+        else:
+            # Reset to default — remove custom template
+            await db.set_agent_config_bulk({"survival_prompt": ""})
+        return await get_prompt_template()
 
     # ------------------------------------------------------------------
     # Thinking

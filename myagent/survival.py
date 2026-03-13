@@ -338,7 +338,13 @@ class SurvivalEngine:
     # Identity Prompt
     # ------------------------------------------------------------------
 
-    async def _build_identity_prompt(self, projects: list, profile: list) -> str:
+    async def _get_template_variables(self, projects: list | None = None, profile: list | None = None) -> dict:
+        """Compute all template variables for the identity prompt."""
+        if projects is None:
+            projects = []
+        if profile is None:
+            profile = []
+
         project_lines = []
         for p in projects:
             project_lines.append(
@@ -351,7 +357,7 @@ class SurvivalEngine:
             profile_lines.append(f"  - [{d.get('source', '')}] {d.get('content', '')[:150]}")
         profile_text = "\n".join(profile_lines) if profile_lines else "  暂无数据"
 
-        ws = self._workspace
+        ws = str(self._workspace)
 
         # Load dynamic capabilities/behavior config from DB
         config_map = await self._db.get_agent_config()
@@ -394,7 +400,6 @@ class SurvivalEngine:
         if enabled_workflows:
             skill_lines = []
             for i, w in enumerate(enabled_workflows, 1):
-                rate = w.get("success_rate", 0)
                 runs = w.get("run_count", 0)
                 succ = w.get("success_count", 0)
                 rev = w.get("total_revenue") or "无"
@@ -403,12 +408,10 @@ class SurvivalEngine:
                 est_time = w.get("estimated_time") or "?"
                 est_val = w.get("estimated_value") or "未知"
                 desc = w.get("description") or w["name"]
-                # Parse steps count
                 steps_count = 0
                 if w.get("steps"):
                     try:
-                        import json as _json
-                        steps_count = len(_json.loads(w["steps"]))
+                        steps_count = len(json.loads(w["steps"]))
                     except Exception:
                         pass
                 skill_lines.append(
@@ -420,7 +423,21 @@ class SurvivalEngine:
         else:
             skills_text = "暂无工作流。当你发现可复用的赚钱流程时，创建工作流记录下来。"
 
-        return f"""你是 Ying 的生存引擎——一个持续运行的自主 AI 代理。
+        today = datetime.now().strftime('%Y-%m-%d')
+
+        return {
+            "projects_text": projects_text,
+            "profile_text": profile_text,
+            "ws": ws,
+            "caps_text": caps_text,
+            "behs_text": behs_text,
+            "skills_text": skills_text,
+            "today": today,
+        }
+
+    def _get_default_template(self) -> str:
+        """Return the default identity prompt template with {variable} placeholders."""
+        return """你是 Ying 的生存引擎——一个持续运行的自主 AI 代理。
 
 ## 核心事实
 - 你是一个**持久进程**，你会持续运行直到任务完成或被手动停止。
@@ -464,7 +481,7 @@ class SurvivalEngine:
 6. **每完成一轮工作（或每 2 小时）** → review
    curl -X POST http://localhost:3818/api/agent/review \\
      -H "Content-Type: application/json" -H "Authorization: Bearer $MYAGENT_TOKEN" \\
-     -d '{{"period":"{datetime.now().strftime('%Y-%m-%d')}","accomplished":["已完成1"],"next_priorities":["下一步1"]}}'
+     -d '{{"period":"{today}","accomplished":["已完成1"],"next_priorities":["下一步1"]}}'
 
 7. **创建可复用工作流** → workflow
    curl -X POST http://localhost:3818/api/agent/workflow \\
@@ -541,6 +558,20 @@ class SurvivalEngine:
 - 不要为了保持忙碌而做无意义的事
 
 现在开始。先调用 heartbeat API 汇报你的初始状态，然后检查 {ws}/plans/ 目录决定要做什么。"""
+
+    async def _build_identity_prompt(self, projects: list, profile: list) -> str:
+        variables = await self._get_template_variables(projects, profile)
+
+        # Check for custom template in DB
+        config_map = await self._db.get_agent_config()
+        custom_template = config_map.get("survival_prompt", "")
+        template = custom_template if custom_template else self._get_default_template()
+
+        try:
+            return template.format(**variables)
+        except (KeyError, IndexError) as e:
+            logger.warning(f"Prompt template format error: {e}, falling back to default")
+            return self._get_default_template().format(**variables)
 
     # ------------------------------------------------------------------
     # Core operations

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import datetime, date, timezone
 from typing import Callable, Awaitable
@@ -11,6 +12,8 @@ from myagent.db import Database
 from myagent.executor import Executor
 from myagent.memory import MemoryManager
 from myagent.models import TaskStatus
+
+logger = logging.getLogger(__name__)
 
 
 class RateLimiter:
@@ -60,6 +63,7 @@ class Scheduler:
         on_task_done: Callable[[str, str, str | None], Awaitable[None]] | None = None,
         context_manager: ContextManager | None = None,
         memory_manager: MemoryManager | None = None,
+        doubao_client=None,
     ) -> None:
         self._db = db
         self._executor = Executor(claude_settings)
@@ -71,6 +75,18 @@ class Scheduler:
         self._on_task_done = on_task_done
         self._context_manager = context_manager
         self._memory_manager = memory_manager
+
+        # Thinking system
+        self._planner = None
+        self._reflector = None
+        if doubao_client:
+            try:
+                from thinking.planner import Planner
+                from thinking.reflector import Reflector
+                self._planner = Planner(doubao_client)
+                self._reflector = Reflector(doubao_client)
+            except ImportError:
+                logger.warning("Thinking modules not available")
 
     async def process_one(self) -> bool:
         if not self._rate_limiter.can_execute():
@@ -86,6 +102,34 @@ class Scheduler:
 
         self._rate_limiter.record_call()
 
+        # Decompose complex tasks using Planner
+        if self._planner and task.complexity == "complex":
+            try:
+                subtasks = await self._planner.decompose(task.prompt)
+                if len(subtasks) > 1:
+                    logger.info("Planner decomposed task %s into %d subtasks", task.id, len(subtasks))
+                    # Create subtasks and mark parent as done
+                    from myagent.models import Task as TaskModel, TaskSource
+                    for st in subtasks:
+                        sub = TaskModel(
+                            prompt=st.get("prompt", ""),
+                            priority=st.get("priority", "normal"),
+                            source=task.source,
+                            cwd=task.cwd,
+                            complexity="simple",
+                        )
+                        await self._db.create_task(sub)
+                    finished = datetime.now(timezone.utc).isoformat()
+                    await self._db.update_task(
+                        task.id,
+                        status=TaskStatus.DONE,
+                        finished_at=finished,
+                        result_summary=f"Decomposed into {len(subtasks)} subtasks",
+                    )
+                    return True
+            except Exception:
+                logger.exception("Planner failed for task %s, executing directly", task.id)
+
         # Build enriched prompt with persona + memories
         enriched_prompt = task.prompt
         if self._context_manager:
@@ -94,7 +138,7 @@ class Scheduler:
                 try:
                     memory_context = await self._memory_manager.get_context_for_task(task.prompt)
                 except Exception:
-                    pass
+                    logger.exception("Failed to get memory context for task %s", task.id)
             enriched_prompt = self._context_manager.build_prompt(
                 user_prompt=task.prompt,
                 memory_context=memory_context,
@@ -105,7 +149,6 @@ class Scheduler:
         agent_name = None
         use_team = False
         if task.complexity == "specialized":
-            # TODO: detect specific subagent from prompt/tags
             agent_name = None  # Will be set by router in the future
         elif task.complexity == "complex":
             use_team = True
@@ -167,12 +210,28 @@ class Scheduler:
                 session_id=session_id,
             )
 
+        # Reflector: evaluate completed task quality
+        if self._reflector and not failed:
+            try:
+                evaluation = await self._reflector.evaluate(task.prompt, result_summary)
+                logger.info(
+                    "Reflector evaluation for task %s: quality=%s, needs_review=%s",
+                    task.id, evaluation.get("quality"), evaluation.get("needs_review"),
+                )
+                await self._db.log_event(
+                    task_id=task.id,
+                    event_type="reflection",
+                    content=str(evaluation),
+                )
+            except Exception:
+                logger.exception("Reflector failed for task %s", task.id)
+
         if self._on_task_done:
             try:
                 final_status = "failed" if failed else "done"
                 await self._on_task_done(task.id, final_status, result_summary)
             except Exception:
-                pass  # Don't let notification errors break scheduling
+                logger.exception("Notification callback failed for task %s", task.id)
 
         return True
 
@@ -184,6 +243,7 @@ class Scheduler:
                 if not processed:
                     await asyncio.sleep(poll_interval)
             except Exception:
+                logger.exception("Scheduler error processing task")
                 await asyncio.sleep(poll_interval)
 
     def stop(self) -> None:

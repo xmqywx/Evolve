@@ -19,8 +19,8 @@ scheduler:
 
 server:
   host: "0.0.0.0"
-  port: 8090
-  secret: "change-me-to-a-real-secret"
+  port: 3818
+  secret: "wx123456"
 
 feishu:
   app_id: "cli_a93a96cec0f89cb5"
@@ -44,7 +44,7 @@ doubao:
 
 postgres:
   dsn: "postgresql://ying@localhost/myagent"
-  enabled: false
+  enabled: true
 
 scanner:
   process_interval: 5
@@ -54,3 +54,6 @@ scanner:
 jwt:
   secret: "myagent-jwt-secret-change-me"
   expiry_hours: 168
+
+survival:
+  enabled: true
