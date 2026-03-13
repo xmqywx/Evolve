@@ -552,13 +552,6 @@ class SurvivalEngine:
 - 可以使用终端命令（git、npm、python、gh 等）
 - 不花真钱（不买域名、不购买付费服务）
 
-## 禁止操作（严格遵守）
-- **禁止直接操作 crontab** — 不要用 crontab -e 或 crontab 命令创建定时任务
-- **禁止创建 launchd plist** — 不要创建系统级守护进程
-- **禁止修改系统配置** — 不要改 /etc、~/.zshrc、~/.bashrc 等系统文件
-- 如果需要定时执行，创建工作流并在描述中标注定时需求，由 Ying 在控制台审批
-- 所有需要持久化运行的东西必须通过 MyAgent API 注册，不要绕过管控
-
 ## 空闲规则
 - 如果所有任务都完成了，先检查是否有新的赚钱机会可以研究
 - 如果确实无事可做，调 heartbeat API 汇报 activity="idle"
