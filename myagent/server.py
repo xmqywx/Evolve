@@ -989,6 +989,37 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "triggered"}
 
     # ------------------------------------------------------------------
+    # Supervisor Reports
+    # ------------------------------------------------------------------
+
+    @app.get("/api/supervisor/reports", dependencies=[Depends(verify_auth)])
+    async def list_supervisor_reports(limit: int = Query(30)):
+        reports = await db.list_supervisor_reports(limit=limit)
+        return {"reports": reports}
+
+    @app.get("/api/supervisor/reports/{report_id}", dependencies=[Depends(verify_auth)])
+    async def get_supervisor_report(report_id: int):
+        report = await db.get_supervisor_report(report_id)
+        if not report:
+            raise HTTPException(status_code=404, detail="Not found")
+        return report
+
+    @app.post("/api/supervisor/generate", dependencies=[Depends(verify_auth)])
+    async def generate_supervisor_report():
+        from myagent.supervisor import generate_report
+        doubao_client = app.state.doubao_client
+        if not doubao_client.is_enabled:
+            raise HTTPException(status_code=503, detail="Doubao not enabled")
+        result = await generate_report(db, doubao_client)
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to generate report")
+        return result
+
+    @app.get("/api/supervisor/activity", dependencies=[Depends(verify_auth)])
+    async def get_today_activity():
+        return await db.get_today_activity()
+
+    # ------------------------------------------------------------------
     # Thinking
     # ------------------------------------------------------------------
 
@@ -1882,6 +1913,33 @@ async def _backup_loop(app: FastAPI) -> None:
             await asyncio.sleep(3600)
 
 
+async def _supervisor_loop(app: FastAPI) -> None:
+    """Generate supervisor report daily at 23:00 local time."""
+    from myagent.supervisor import generate_report
+    last_run_date = None
+    while True:
+        try:
+            now = datetime.now()
+            today = now.date()
+            if last_run_date != today and now.hour == 23 and now.minute >= 0:
+                doubao = app.state.doubao_client
+                if doubao.is_enabled:
+                    logger.info("Starting daily supervisor report")
+                    try:
+                        result = await generate_report(app.state.db, doubao)
+                        if result:
+                            logger.info("Supervisor report generated: #%s", result["id"])
+                    except Exception:
+                        logger.exception("Supervisor report failed")
+                last_run_date = today
+            await asyncio.sleep(60)
+        except asyncio.CancelledError:
+            break
+        except Exception:
+            logger.exception("Supervisor loop error")
+            await asyncio.sleep(60)
+
+
 async def run_server(config_path: str) -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(name)s %(levelname)s %(message)s")
     app = await create_app(config_path)
@@ -1895,6 +1953,9 @@ async def run_server(config_path: str) -> None:
     # Start daily review cron + backup
     review_task = asyncio.create_task(_daily_review_loop(app))
     backup_task = asyncio.create_task(_backup_loop(app))
+
+    # Start supervisor daily report
+    supervisor_task = asyncio.create_task(_supervisor_loop(app))
 
     # Start cron scheduler for scheduled tasks
     from myagent.cron_scheduler import CronScheduler
@@ -1955,6 +2016,7 @@ async def run_server(config_path: str) -> None:
         scanner_task.cancel()
         review_task.cancel()
         backup_task.cancel()
+        supervisor_task.cancel()
         cron_task.cancel()
         if relay_task:
             app.state.relay_client.stop()

@@ -857,6 +857,86 @@ class Database:
         await self._db.commit()
 
     # ------------------------------------------------------------------
+    # supervisor reports
+    # ------------------------------------------------------------------
+
+    async def add_supervisor_report(self, period: str, summary: str, details: str | None = None, stats: str | None = None) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            "INSERT INTO supervisor_reports (period, summary, details, stats, created_at) VALUES (?,?,?,?,?)",
+            (period, summary, details, stats, now),
+        )
+        await self._db.commit()
+        return cursor.lastrowid
+
+    async def list_supervisor_reports(self, limit: int = 30) -> list[dict]:
+        cursor = await self._db.execute(
+            "SELECT * FROM supervisor_reports ORDER BY id DESC LIMIT ?", (limit,)
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def get_supervisor_report(self, report_id: int) -> dict | None:
+        cursor = await self._db.execute("SELECT * FROM supervisor_reports WHERE id = ?", (report_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    async def get_today_activity(self) -> dict:
+        """Collect today's agent activity for supervisor analysis."""
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+        # Heartbeats today
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_heartbeats WHERE date(created_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        heartbeats = [dict(r) for r in await cursor.fetchall()]
+
+        # Deliverables today
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_deliverables WHERE date(created_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        deliverables = [dict(r) for r in await cursor.fetchall()]
+
+        # Discoveries today
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_discoveries WHERE date(created_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        discoveries = [dict(r) for r in await cursor.fetchall()]
+
+        # Workflow runs today
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_workflow_runs WHERE date(started_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        workflow_runs = [dict(r) for r in await cursor.fetchall()]
+
+        # Scheduled task runs today
+        cursor = await self._db.execute(
+            "SELECT * FROM scheduled_task_runs WHERE date(started_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        task_runs = [dict(r) for r in await cursor.fetchall()]
+
+        # Reviews today
+        cursor = await self._db.execute(
+            "SELECT * FROM agent_reviews WHERE date(created_at) = ? ORDER BY id DESC",
+            (today,),
+        )
+        reviews = [dict(r) for r in await cursor.fetchall()]
+
+        return {
+            "date": today,
+            "heartbeats": heartbeats,
+            "deliverables": deliverables,
+            "discoveries": discoveries,
+            "workflow_runs": workflow_runs,
+            "task_runs": task_runs,
+            "reviews": reviews,
+        }
+
+    # ------------------------------------------------------------------
     # scheduled tasks
     # ------------------------------------------------------------------
 
@@ -1248,6 +1328,15 @@ CREATE TABLE IF NOT EXISTS scheduled_tasks (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
     FOREIGN KEY (workflow_id) REFERENCES agent_workflows(id)
+);
+
+CREATE TABLE IF NOT EXISTS supervisor_reports (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    period TEXT NOT NULL,
+    summary TEXT NOT NULL,
+    details TEXT,
+    stats TEXT,
+    created_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS scheduled_task_runs (
