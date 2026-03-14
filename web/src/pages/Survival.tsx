@@ -154,12 +154,13 @@ export default function SurvivalPage() {
   };
   const handleInterrupt = async () => { try { await apiFetch('/api/survival/interrupt', { method: 'POST' }); } catch {} };
   const handleAnalyze = async () => {
-    if (!status?.claude_session_id) return;
     setAnalyzing(true);
     try {
+      const body: Record<string, string> = {};
+      if (status?.claude_session_id) body.session_id = status.claude_session_id;
       await apiFetch('/api/supervisor/analyze', {
         method: 'POST',
-        body: JSON.stringify({ session_id: status.claude_session_id }),
+        body: JSON.stringify(body),
       });
       navigate('/supervisor');
     } catch (e: unknown) {
@@ -200,7 +201,7 @@ export default function SurvivalPage() {
           {status?.pid && <span style={{ fontSize: 11, color: '#8b949e' }}>PID: {status.pid}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          {status?.claude_session_id && (
+          {isRunning && (
             <button onClick={handleAnalyze} disabled={analyzing} style={{
               padding: '3px 10px', fontSize: 11, borderRadius: 6,
               border: '1px solid rgba(88,166,255,0.3)', color: '#58a6ff', background: 'transparent', cursor: 'pointer',

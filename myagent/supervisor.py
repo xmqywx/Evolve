@@ -179,6 +179,28 @@ def _find_jsonl(session_id: str, projects_dir: Path) -> Path | None:
     return None
 
 
+def find_latest_survival_jsonl(projects_dir: str, workspace: str) -> tuple[str, Path] | None:
+    """Find the most recent JSONL file for the survival engine workspace."""
+    from myagent.scanner import encode_cwd_to_dirname
+    projects_path = Path(projects_dir).expanduser()
+    encoded = encode_cwd_to_dirname(workspace)
+    project_path = projects_path / encoded
+    if not project_path.exists():
+        # Try underscore variant (workspace path may use _ instead of -)
+        for d in projects_path.iterdir():
+            if d.is_dir() and "survival" in d.name.lower():
+                project_path = d
+                break
+        else:
+            return None
+
+    jsonl_files = sorted(project_path.glob("*.jsonl"), key=lambda p: p.stat().st_mtime, reverse=True)
+    for f in jsonl_files:
+        if len(f.stem) >= 30:
+            return f.stem, f
+    return None
+
+
 def _extract_text(content) -> str:
     """Extract plain text from message content (string or content blocks)."""
     if isinstance(content, str):

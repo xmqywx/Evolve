@@ -1020,11 +1020,21 @@ async def create_app(config_path: str) -> FastAPI:
         return await db.get_today_activity()
 
     @app.post("/api/supervisor/analyze", dependencies=[Depends(verify_auth)])
-    async def analyze_session(session_id: str = Body(..., embed=True)):
-        from myagent.supervisor import analyze_session as _analyze
+    async def analyze_session(session_id: str = Body(None, embed=True)):
+        from myagent.supervisor import analyze_session as _analyze, find_latest_survival_jsonl
         doubao_client = app.state.doubao_client
         if not doubao_client.is_enabled:
             raise HTTPException(status_code=503, detail="Doubao not enabled")
+        # Auto-detect survival engine session if no session_id provided
+        if not session_id:
+            found = find_latest_survival_jsonl(
+                config.scanner.claude_projects_dir,
+                config.survival.workspace,
+            )
+            if not found:
+                raise HTTPException(status_code=404, detail="No survival engine JSONL found")
+            session_id = found[0]
+            logger.info("Auto-detected survival session: %s", session_id)
         result = await _analyze(
             session_id=session_id,
             projects_dir=config.scanner.claude_projects_dir,
