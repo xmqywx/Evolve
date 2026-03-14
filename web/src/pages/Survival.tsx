@@ -153,6 +153,9 @@ export default function SurvivalPage() {
     setSending(false);
   };
   const handleInterrupt = async () => { try { await apiFetch('/api/survival/interrupt', { method: 'POST' }); } catch {} };
+  const handleToggleWatchdog = async (enabled: boolean) => {
+    try { await apiFetch('/api/survival/watchdog', { method: 'POST', body: JSON.stringify({ enabled }) }); fetchStatus(); } catch {}
+  };
   const handleAnalyze = async () => {
     setAnalyzing(true);
     try {
@@ -201,6 +204,11 @@ export default function SurvivalPage() {
           {status?.pid && <span style={{ fontSize: 11, color: '#8b949e' }}>PID: {status.pid}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e', cursor: 'pointer' }} title="守护进程：自动重启 + 空闲检测 + 飞书报告">
+            <input type="checkbox" checked={status?.watchdog_active ?? false} onChange={(e) => handleToggleWatchdog(e.target.checked)}
+              style={{ width: 14, height: 14, accentColor: '#58a6ff' }} />
+            守护
+          </label>
           {isRunning && (
             <button onClick={handleAnalyze} disabled={analyzing} style={{
               padding: '3px 10px', fontSize: 11, borderRadius: 6,
