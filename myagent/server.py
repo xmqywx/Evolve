@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 import uvicorn
-from fastapi import FastAPI, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
+from fastapi import Body, FastAPI, Depends, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -1018,6 +1018,24 @@ async def create_app(config_path: str) -> FastAPI:
     @app.get("/api/supervisor/activity", dependencies=[Depends(verify_auth)])
     async def get_today_activity():
         return await db.get_today_activity()
+
+    @app.post("/api/supervisor/analyze", dependencies=[Depends(verify_auth)])
+    async def analyze_session(session_id: str = Body(..., embed=True)):
+        from myagent.supervisor import analyze_session as _analyze
+        doubao_client = app.state.doubao_client
+        if not doubao_client.is_enabled:
+            raise HTTPException(status_code=503, detail="Doubao not enabled")
+        result = await _analyze(
+            session_id=session_id,
+            projects_dir=config.scanner.claude_projects_dir,
+            db=db,
+            doubao=doubao_client,
+        )
+        if not result:
+            raise HTTPException(status_code=500, detail="Failed to analyze session")
+        if "error" in result:
+            raise HTTPException(status_code=404, detail=result["error"])
+        return result
 
     # ------------------------------------------------------------------
     # Thinking

@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import '@xterm/xterm/css/xterm.css';
+import { useNavigate } from 'react-router-dom';
 import { apiFetch, createWsUrl } from '../utils/api';
 
 interface EngineStatus {
@@ -17,11 +18,13 @@ interface EngineStatus {
 }
 
 export default function SurvivalPage() {
+  const navigate = useNavigate();
   const [status, setStatus] = useState<EngineStatus | null>(null);
   const [connected, setConnected] = useState(false);
   const [loading, setLoading] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
   const termRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -150,6 +153,19 @@ export default function SurvivalPage() {
     setSending(false);
   };
   const handleInterrupt = async () => { try { await apiFetch('/api/survival/interrupt', { method: 'POST' }); } catch {} };
+  const handleAnalyze = async () => {
+    if (!status?.claude_session_id) return;
+    setAnalyzing(true);
+    try {
+      await apiFetch('/api/supervisor/analyze', {
+        method: 'POST',
+        body: JSON.stringify({ session_id: status.claude_session_id }),
+      });
+      navigate('/supervisor');
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : '分析失败');
+    } finally { setAnalyzing(false); }
+  };
 
   const isRunning = status?.running ?? false;
 
@@ -184,6 +200,13 @@ export default function SurvivalPage() {
           {status?.pid && <span style={{ fontSize: 11, color: '#8b949e' }}>PID: {status.pid}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          {status?.claude_session_id && (
+            <button onClick={handleAnalyze} disabled={analyzing} style={{
+              padding: '3px 10px', fontSize: 11, borderRadius: 6,
+              border: '1px solid rgba(88,166,255,0.3)', color: '#58a6ff', background: 'transparent', cursor: 'pointer',
+              opacity: analyzing ? 0.5 : 1,
+            }}>{analyzing ? '分析中...' : '监督分析'}</button>
+          )}
           {isRunning ? (
             <button onClick={handleStop} style={{
               padding: '3px 10px', fontSize: 11, borderRadius: 6,
