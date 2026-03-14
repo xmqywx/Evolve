@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { RefreshCw, Eye, ChevronDown, ChevronRight, Loader2, BarChart3 } from 'lucide-react';
+import ReactMarkdown from 'react-markdown';
 import { apiFetch } from '../utils/api';
 
 interface Report {
@@ -129,9 +130,18 @@ export default function SupervisorPage() {
 
                 {isExpanded && (
                   <div className="px-4 pb-4" style={{ borderTop: '1px solid var(--border)' }}>
-                    <div className="mt-3 prose prose-sm max-w-none text-sm leading-relaxed whitespace-pre-wrap"
+                    <div className="mt-3 max-w-none text-sm leading-relaxed
+                      [&_h1]:text-base [&_h1]:font-semibold [&_h1]:mt-4 [&_h1]:mb-2
+                      [&_h2]:text-sm [&_h2]:font-semibold [&_h2]:mt-3 [&_h2]:mb-1.5
+                      [&_h3]:text-sm [&_h3]:font-medium [&_h3]:mt-3 [&_h3]:mb-1
+                      [&_p]:mb-2 [&_p]:leading-relaxed
+                      [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:mb-2
+                      [&_ol]:list-decimal [&_ol]:pl-5 [&_ol]:mb-2
+                      [&_li]:mb-0.5
+                      [&_strong]:font-semibold [&_strong]:text-[var(--text)]
+                      [&_hr]:my-3 [&_hr]:border-[var(--border)]"
                       style={{ color: 'var(--text-secondary)' }}>
-                      {report.summary}
+                      <ReactMarkdown>{report.summary}</ReactMarkdown>
                     </div>
                   </div>
                 )}
