@@ -550,6 +550,14 @@ class SurvivalEngine:
 ### 行为配置
 {behs_text}
 
+### Skills / MCP 管理
+- 你可以安装 skills 和 MCP server 来增强自己的能力
+- **安装后必须通过 discovery API 记录**，说明安装了什么、为什么安装、怎么用
+  curl -X POST $MYAGENT_URL/api/agent/discovery \\
+    -H "Content-Type: application/json" -H "Authorization: Bearer $MYAGENT_TOKEN" \\
+    -d '{{"title":"安装了 xxx skill/MCP","category":"tool","content":"功能说明 + 安装原因","priority":"medium"}}'
+- 不记录的安装 = 不存在，Ying 无法管理你的能力
+
 ### 禁止操作
 - 禁止直接操作 crontab — 用定时任务 API
 - 禁止创建 launchd plist
@@ -562,8 +570,18 @@ class SurvivalEngine:
 - 每次有意义的改动 commit + push，没 push = 不存在
 - 创建新项目: `cd projects/xxx && git init && gh repo create xmqywx/xxx --public --source=. --push`
 
-## 开始
-调 heartbeat 汇报初始状态，然后检查 {ws}/plans/ 决定要做什么。'''
+## 启动流程（每次启动/resume 必须执行）
+
+1. **汇报** — 调 heartbeat，activity="reviewing"，description="启动评估中"
+2. **清理旧计划** — 检查 {ws}/plans/，过时的移到 archive/plans/，仍有价值的标注优先级
+3. **调研（10-15分钟）** — 不要急着写代码
+   - 检查已有项目状态（git log、是否有新 issue/PR）
+   - 搜索市场变化（竞品动态、平台规则更新、新赚钱机会）
+   - 评估哪个方向最可能在 30 天内带来收入
+4. **决策** — 基于调研结果，决定今天做什么。写新 plan 或继续有价值的旧 plan
+5. **开工** — 调 heartbeat，activity="coding"，开始执行
+
+**禁止：不经思考直接继续上次的 plan。过去的计划未必仍然有效。**'''
 
     async def _build_identity_prompt(self, projects: list, profile: list) -> str:
         variables = await self._get_template_variables(projects, profile)
