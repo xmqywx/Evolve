@@ -19,6 +19,10 @@
 
 > Evolve is **not another agent framework**. It's a **control system** — it doesn't care how your agent writes code. It cares whether your agent is working, working correctly, learning from mistakes, and getting better over time.
 
+<p align="center">
+  <img src="docs/screenshot-dashboard.png" width="800" alt="Evolve Dashboard"/>
+</p>
+
 ## Why Evolve?
 
 When you run Claude/GPT autonomously 24/7, three problems emerge:
@@ -81,6 +85,10 @@ Agent makes a mistake (review.learned: "pkill -f crashes the system")
 
 ### 3. Supervisor Agent — AI Reviewing AI
 
+<p align="center">
+  <img src="docs/screenshot-supervisor.png" width="800" alt="Supervisor Reports"/>
+</p>
+
 One agent works. Another agent reviews its work.
 
 Click "Analyze" → Evolve reads the survival engine's full JSONL conversation log → Python extracts key actions (tool calls, decisions, commands) → compresses to ~6000 chars → sends to Doubao for analysis:
@@ -122,6 +130,10 @@ Before starting any task, the agent must:
 
 Full visibility into what your agent has installed:
 
+<p align="center">
+  <img src="docs/screenshot-extensions.png" width="800" alt="Extensions Manager"/>
+</p>
+
 - **Skills scanner** — discovers skills from global (`~/.claude/skills/`), plugins, and workspace projects
 - **MCP servers** — shows all connected Model Context Protocol servers
 - **Plugins** — lists installed Claude Code plugins with enable/disable status
@@ -131,6 +143,10 @@ Full visibility into what your agent has installed:
 ### 7. Capability Controls
 
 Toggle agent permissions at runtime from the Dashboard — no restart needed:
+
+<p align="center">
+  <img src="docs/screenshot-capabilities.png" width="800" alt="Capability Controls"/>
+</p>
 
 | Capability | Status | Meaning |
 |-----------|--------|---------|
