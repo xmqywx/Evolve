@@ -1,6 +1,10 @@
-# Evolve
+<p align="center">
+  <img src="logo.svg" width="120" alt="Evolve Logo"/>
+</p>
 
-**AI Agent 控制平面 — 让 AI 自我管理、自我学习、自我进化。**
+<h1 align="center">Evolve</h1>
+
+<p align="center"><strong>AI Agent 控制平面 — 让 AI 自我管理、自我学习、自我进化。</strong></p>
 
 > 不是又一个 Agent 框架。Evolve 是一个**管控系统**——它不关心 Agent 怎么写代码，它关心的是：Agent 有没有在干活？干得对不对？学到了什么？下次能不能做得更好？
 
