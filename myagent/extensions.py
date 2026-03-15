@@ -94,7 +94,7 @@ def scan_skills() -> list[dict[str, Any]]:
                     "name": name,
                     "description": desc,
                     "version": meta.get("version", ""),
-                    "source": "local",
+                    "source": "global",
                     "plugin": None,
                     "path": str(skill_dir),
                     "tags": _infer_tags(name, desc),
@@ -228,22 +228,69 @@ def scan_plugins() -> list[dict[str, Any]]:
     return plugins
 
 
-def scan_all() -> dict[str, Any]:
+def scan_workspace_skills(workspace: str) -> list[dict[str, Any]]:
+    """Scan skills inside workspace projects."""
+    skills = []
+    projects_dir = Path(workspace) / "projects"
+    if not projects_dir.exists():
+        return skills
+    for project_dir in projects_dir.iterdir():
+        if not project_dir.is_dir():
+            continue
+        skills_dir = project_dir / "skills"
+        if not skills_dir.exists():
+            continue
+        for skill_dir in skills_dir.iterdir():
+            if not skill_dir.is_dir():
+                continue
+            skill_file = skill_dir / "SKILL.md"
+            if not skill_file.exists():
+                md_files = list(skill_dir.glob("*.md"))
+                if md_files:
+                    skill_file = md_files[0]
+                else:
+                    continue
+            try:
+                content = skill_file.read_text(encoding="utf-8", errors="replace")
+                meta, body = _parse_frontmatter(content)
+                name = meta.get("name", skill_dir.name)
+                desc = meta.get("description", "")
+                skills.append({
+                    "name": name,
+                    "description": desc,
+                    "version": meta.get("version", ""),
+                    "source": "workspace",
+                    "plugin": project_dir.name,
+                    "path": str(skill_dir),
+                    "tags": _infer_tags(name, desc),
+                    "installed_by": "survival",
+                })
+            except Exception:
+                logger.debug("Failed to parse workspace skill: %s", skill_dir)
+    return skills
+
+
+def scan_all(workspace: str = "") -> dict[str, Any]:
     """Scan everything and return combined result (filesystem only, no DB)."""
+    skills = scan_skills()
+    if workspace:
+        skills.extend(scan_workspace_skills(workspace))
     return {
-        "skills": scan_skills(),
+        "skills": skills,
         "mcps": scan_mcps(),
         "plugins": scan_plugins(),
         "tags": DEFAULT_TAGS,
     }
 
 
-async def sync_to_db(db) -> None:
+async def sync_to_db(db, workspace: str = "") -> None:
     """Scan filesystem and sync to DB. Preserves user-edited fields."""
     import json as _json
 
-    # Sync skills
+    # Sync skills (global + plugin + workspace)
     skills = scan_skills()
+    if workspace:
+        skills.extend(scan_workspace_skills(workspace))
     skill_names = []
     for s in skills:
         skill_names.append(s["name"])

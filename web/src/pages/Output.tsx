@@ -34,11 +34,23 @@ function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false });
 }
 
+interface ProjectInfo {
+  name: string;
+  path: string;
+  has_readme: boolean;
+  has_git: boolean;
+  description: string;
+  file_count: number;
+  last_commit: string;
+}
+
 export default function OutputPage() {
   const [deliverables, setDeliverables] = useState<AgentDeliverable[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [projects, setProjects] = useState<ProjectInfo[]>([]);
+  const [showProjects, setShowProjects] = useState(true);
 
   const fetchDeliverables = useCallback(async () => {
     setLoading(true);
@@ -54,6 +66,15 @@ export default function OutputPage() {
   }, [typeFilter, statusFilter]);
 
   useEffect(() => { fetchDeliverables(); }, [fetchDeliverables]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const d = await apiFetch<{ projects: ProjectInfo[] }>('/api/projects/scan');
+        setProjects(d.projects);
+      } catch {}
+    })();
+  }, []);
 
   const updateStatus = async (id: number, newStatus: string) => {
     try {
@@ -88,6 +109,38 @@ export default function OutputPage() {
           </button>
         </div>
       </div>
+
+      {/* Project overview */}
+      {projects.length > 0 && (
+        <div className="mb-2">
+          <button onClick={() => setShowProjects(!showProjects)}
+            className="flex items-center gap-2 text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
+            <FolderOpen size={16} />
+            项目总览 ({projects.length})
+            <ChevronDown size={14} className={`transition-transform ${showProjects ? '' : '-rotate-90'}`} />
+          </button>
+          {showProjects && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+              {projects.map(p => (
+                <div key={p.name} className="p-3 rounded-xl border bg-[var(--surface)]" style={{ borderColor: 'var(--border)' }}>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{p.name}</span>
+                    {p.has_readme
+                      ? <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(52,211,153,0.15)', color: 'rgb(52,211,153)' }}>README</span>
+                      : <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}>无README</span>}
+                    {p.has_git && <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(96,165,250,0.15)', color: 'rgb(96,165,250)' }}>git</span>}
+                  </div>
+                  {p.description && <div className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{p.description}</div>}
+                  <div className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
+                    {p.file_count} 文件
+                    {p.last_commit && ` · ${p.last_commit.split('|')[1] || ''}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex gap-4 flex-wrap">

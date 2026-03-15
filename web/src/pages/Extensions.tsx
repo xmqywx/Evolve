@@ -71,6 +71,7 @@ export default function ExtensionsPage() {
   const [tab, setTab] = useState<TabType>('skill');
   const [tagFilter, setTagFilter] = useState('');
   const [search, setSearch] = useState('');
+  const [scopeFilter, setScopeFilter] = useState('');
   const [expanded, setExpanded] = useState<number | null>(null);
   const [editingCn, setEditingCn] = useState<{ id: number; value: string } | null>(null);
 
@@ -108,6 +109,7 @@ export default function ExtensionsPage() {
 
   const filtered = items.filter(i => {
     if (i.type !== tab) return false;
+    if (scopeFilter && i.source !== scopeFilter) return false;
     if (tagFilter) {
       const tags = parseTags(i.tags);
       if (!tags.includes(tagFilter)) return false;
@@ -158,6 +160,22 @@ export default function ExtensionsPage() {
           </button>
         ))}
       </div>
+
+      {/* Scope filter */}
+      {tab === 'skill' && (
+        <div className="flex items-center gap-1.5">
+          {[['', '全部'], ['global', '全局'], ['plugin', '插件'], ['workspace', '工作区']].map(([val, label]) => (
+            <button key={val} onClick={() => setScopeFilter(val)}
+              className={`text-[11px] px-2.5 py-1 rounded-full transition-all ${
+                scopeFilter === val
+                  ? 'bg-[var(--accent)] text-white'
+                  : 'bg-[var(--surface)] text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Tag bar — clickable chips for quick filter */}
       {usedTags.size > 0 && (

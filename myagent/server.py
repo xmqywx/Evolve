@@ -904,7 +904,7 @@ async def create_app(config_path: str) -> FastAPI:
     @app.post("/api/extensions/sync", dependencies=[Depends(verify_auth)])
     async def sync_extensions():
         from myagent.extensions import sync_to_db
-        await sync_to_db(db)
+        await sync_to_db(db, workspace=config.survival.workspace)
         # Also match discovery records for installed_by
         tool_discoveries = await db.list_discoveries(category="tool", limit=200)
         if tool_discoveries:
@@ -922,6 +922,53 @@ async def create_app(config_path: str) -> FastAPI:
     async def update_extension(ext_id: int, body: dict = Body(...)):
         await db.update_extension(ext_id, **body)
         return await db.get_extension(ext_id)
+
+    @app.get("/api/projects/scan", dependencies=[Depends(verify_auth)])
+    async def scan_projects():
+        """Scan workspace/projects/ and return project info."""
+        import subprocess as _sp
+        projects_dir = Path(config.survival.workspace) / "projects"
+        if not projects_dir.exists():
+            return {"projects": []}
+        results = []
+        for d in sorted(projects_dir.iterdir()):
+            if not d.is_dir() or d.name.startswith('.'):
+                continue
+            readme = d / "README.md"
+            pkg = d / "package.json"
+            has_git = (d / ".git").exists()
+            description = ""
+            if readme.exists():
+                try:
+                    for line in readme.read_text(encoding="utf-8", errors="replace").split("\n"):
+                        line = line.strip()
+                        if line and not line.startswith("#") and not line.startswith("---"):
+                            description = line[:200]
+                            break
+                except Exception:
+                    pass
+            if not description and pkg.exists():
+                try:
+                    import json as _json
+                    description = _json.loads(pkg.read_text()).get("description", "")[:200]
+                except Exception:
+                    pass
+            file_count = sum(1 for f in d.rglob("*") if f.is_file() and ".git" not in f.parts)
+            last_commit = ""
+            if has_git:
+                try:
+                    r = _sp.run(["git", "log", "-1", "--format=%ci|%s"],
+                                cwd=str(d), capture_output=True, text=True, timeout=5)
+                    if r.returncode == 0:
+                        last_commit = r.stdout.strip()
+                except Exception:
+                    pass
+            results.append({
+                "name": d.name, "path": str(d), "has_readme": readme.exists(),
+                "has_git": has_git, "description": description,
+                "file_count": file_count, "last_commit": last_commit,
+            })
+        return {"projects": results}
 
     # ------------------------------------------------------------------
     # Prompt template management
