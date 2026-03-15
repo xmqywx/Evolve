@@ -1,66 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" fill="none">
   <defs>
-    <linearGradient id="g1" x1="0%" y1="100%" x2="100%" y2="0%">
+    <linearGradient id="g" x1="0%" y1="100%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#0EA5E9"/>
-      <stop offset="50%" stop-color="#06B6D4"/>
       <stop offset="100%" stop-color="#10B981"/>
-    </linearGradient>
-    <linearGradient id="g2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#0EA5E9" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#10B981" stop-opacity="0.1"/>
     </linearGradient>
   </defs>
 
-  <!-- Background circle -->
-  <circle cx="256" cy="256" r="240" fill="url(#g2)" stroke="url(#g1)" stroke-width="3"/>
-
-  <!-- Inner geometric pattern: ascending connected nodes (evolution path) -->
-  <!-- Node 1 (bottom-left) -->
-  <circle cx="120" cy="360" r="18" fill="url(#g1)" opacity="0.4"/>
-  <circle cx="120" cy="360" r="8" fill="url(#g1)"/>
-
-  <!-- Node 2 -->
-  <circle cx="190" cy="300" r="20" fill="url(#g1)" opacity="0.5"/>
-  <circle cx="190" cy="300" r="9" fill="url(#g1)"/>
-
-  <!-- Node 3 -->
-  <circle cx="256" cy="250" r="22" fill="url(#g1)" opacity="0.6"/>
-  <circle cx="256" cy="250" r="10" fill="url(#g1)"/>
-
-  <!-- Node 4 -->
-  <circle cx="316" cy="195" r="24" fill="url(#g1)" opacity="0.7"/>
-  <circle cx="316" cy="195" r="11" fill="url(#g1)"/>
-
-  <!-- Node 5 (top-right, largest — evolved state) -->
-  <circle cx="370" cy="140" r="32" fill="url(#g1)" opacity="0.25"/>
-  <circle cx="370" cy="140" r="22" fill="url(#g1)" opacity="0.5"/>
-  <circle cx="370" cy="140" r="13" fill="url(#g1)"/>
-
-  <!-- Connecting lines (evolution path) -->
-  <line x1="120" y1="360" x2="190" y2="300" stroke="url(#g1)" stroke-width="2" opacity="0.4"/>
-  <line x1="190" y1="300" x2="256" y2="250" stroke="url(#g1)" stroke-width="2.5" opacity="0.5"/>
-  <line x1="256" y1="250" x2="316" y2="195" stroke="url(#g1)" stroke-width="3" opacity="0.6"/>
-  <line x1="316" y1="195" x2="370" y2="140" stroke="url(#g1)" stroke-width="3.5" opacity="0.8"/>
-
-  <!-- Feedback loops (knowledge cycling back) -->
-  <path d="M 370 165 Q 420 260 316 220" stroke="#06B6D4" stroke-width="1.5" fill="none" opacity="0.3" stroke-dasharray="4 4"/>
-  <path d="M 316 220 Q 350 310 256 275" stroke="#06B6D4" stroke-width="1.5" fill="none" opacity="0.25" stroke-dasharray="4 4"/>
-  <path d="M 256 275 Q 280 360 190 325" stroke="#06B6D4" stroke-width="1.5" fill="none" opacity="0.2" stroke-dasharray="4 4"/>
-
-  <!-- Arrow tip on the evolution path -->
-  <polygon points="380,128 370,118 362,135" fill="url(#g1)" opacity="0.9"/>
-
-  <!-- Small orbiting dots (data flowing) -->
-  <circle cx="155" cy="328" r="3" fill="#0EA5E9" opacity="0.6">
-    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="223" cy="273" r="3" fill="#06B6D4" opacity="0.6">
-    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" begin="0.5s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="286" cy="220" r="3" fill="#10B981" opacity="0.6">
-    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" begin="1s" repeatCount="indefinite"/>
-  </circle>
-  <circle cx="343" cy="165" r="3" fill="#10B981" opacity="0.6">
-    <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" begin="1.5s" repeatCount="indefinite"/>
-  </circle>
+  <!-- Clean upward arrow — evolve/grow -->
+  <path d="M 256 72 L 392 248 L 312 248 L 312 432 L 200 432 L 200 248 L 120 248 Z"
+        fill="url(#g)"/>
 </svg>
