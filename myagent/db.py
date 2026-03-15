@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from enum import Enum
 from uuid import uuid4
 
@@ -1046,6 +1046,124 @@ class Database:
         await self._db.commit()
         return cursor.lastrowid
 
+    # ------------------------------------------------------------------
+    # knowledge_base
+    # ------------------------------------------------------------------
+
+    async def add_knowledge(self, content, category, source, source_id=None,
+                            layer="recent", tags=None, score=5.0, expires_at=None) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            """INSERT INTO knowledge_base
+               (content, category, source, source_id, layer, tags, score, created_at, expires_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (content, category, source, source_id, layer, tags, score, now, expires_at),
+        )
+        await self._db.commit()
+        return cursor.lastrowid
+
+    async def get_knowledge(self, layer=None, category=None, days=None, limit=20) -> list[dict]:
+        sql = "SELECT * FROM knowledge_base WHERE retired = 0"
+        params: list = []
+        if layer:
+            sql += " AND layer = ?"
+            params.append(layer)
+        if category:
+            sql += " AND category = ?"
+            params.append(category)
+        if days:
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+            sql += " AND created_at >= ?"
+            params.append(cutoff)
+        sql += " ORDER BY score DESC, created_at DESC LIMIT ?"
+        params.append(limit)
+        cursor = await self._db.execute(sql, params)
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def search_knowledge_by_tags(self, tags: list[str], limit=10) -> list[dict]:
+        if not tags:
+            return []
+        conditions = " OR ".join(["tags LIKE ?" for _ in tags])
+        params = [f"%{t}%" for t in tags]
+        params.append(limit)
+        cursor = await self._db.execute(
+            f"SELECT * FROM knowledge_base WHERE retired = 0 AND ({conditions}) "
+            f"ORDER BY score DESC LIMIT ?",
+            params,
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def update_knowledge(self, kid, **fields):
+        if not fields:
+            return
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        vals = list(fields.values())
+        vals.append(kid)
+        await self._db.execute(
+            f"UPDATE knowledge_base SET {sets} WHERE id = ?", vals,
+        )
+        await self._db.commit()
+
+    async def retire_expired_knowledge(self) -> int:
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute(
+            "UPDATE knowledge_base SET retired = 1 WHERE retired = 0 AND expires_at IS NOT NULL AND expires_at < ?",
+            (now,),
+        )
+        await self._db.commit()
+        return cursor.rowcount
+
+    async def promote_knowledge(self, kid):
+        await self._db.execute(
+            "UPDATE knowledge_base SET layer = 'permanent', expires_at = NULL WHERE id = ?",
+            (kid,),
+        )
+        await self._db.commit()
+
+    async def increment_use_count(self, kid):
+        await self._db.execute(
+            "UPDATE knowledge_base SET use_count = use_count + 1 WHERE id = ?",
+            (kid,),
+        )
+        await self._db.commit()
+
+    async def list_knowledge(self, limit=50, layer=None, category=None, include_retired=False) -> list[dict]:
+        sql = "SELECT * FROM knowledge_base WHERE 1=1"
+        params: list = []
+        if not include_retired:
+            sql += " AND retired = 0"
+        if layer:
+            sql += " AND layer = ?"
+            params.append(layer)
+        if category:
+            sql += " AND category = ?"
+            params.append(category)
+        sql += " ORDER BY created_at DESC LIMIT ?"
+        params.append(limit)
+        cursor = await self._db.execute(sql, params)
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def delete_knowledge(self, kid):
+        await self._db.execute("DELETE FROM knowledge_base WHERE id = ?", (kid,))
+        await self._db.commit()
+
+    async def get_knowledge_stats(self) -> dict:
+        stats = {"total": 0, "by_layer": {}, "by_category": {}}
+        cursor = await self._db.execute(
+            "SELECT layer, COUNT(*) as cnt FROM knowledge_base WHERE retired = 0 GROUP BY layer"
+        )
+        for r in await cursor.fetchall():
+            d = dict(r)
+            stats["by_layer"][d["layer"]] = d["cnt"]
+            stats["total"] += d["cnt"]
+        cursor = await self._db.execute(
+            "SELECT category, COUNT(*) as cnt FROM knowledge_base WHERE retired = 0 GROUP BY category"
+        )
+        for r in await cursor.fetchall():
+            d = dict(r)
+            stats["by_category"][d["category"]] = d["cnt"]
+        return stats
+
 
 # ------------------------------------------------------------------
 # helpers
@@ -1349,4 +1467,21 @@ CREATE TABLE IF NOT EXISTS scheduled_task_runs (
     finished_at TEXT,
     FOREIGN KEY (task_id) REFERENCES scheduled_tasks(id)
 );
+
+CREATE TABLE IF NOT EXISTS knowledge_base (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    content TEXT NOT NULL,
+    category TEXT NOT NULL,
+    source TEXT NOT NULL,
+    source_id TEXT,
+    layer TEXT NOT NULL DEFAULT 'recent',
+    tags TEXT,
+    score REAL DEFAULT 5.0,
+    use_count INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    expires_at TEXT,
+    retired INTEGER DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_kb_layer ON knowledge_base(layer, retired);
+CREATE INDEX IF NOT EXISTS idx_kb_created ON knowledge_base(created_at);
 """

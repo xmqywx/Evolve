@@ -364,6 +364,10 @@ async def create_app(config_path: str) -> FastAPI:
             "timestamp": datetime.now().isoformat(),
         })
 
+    # Knowledge engine
+    from myagent.knowledge import KnowledgeEngine
+    knowledge_engine = KnowledgeEngine(db, doubao_client) if doubao_client.is_enabled else None
+
     survival_engine = SurvivalEngine(
         db=db,
         claude_settings=config.claude,
@@ -371,6 +375,8 @@ async def create_app(config_path: str) -> FastAPI:
         settings=config.survival,
         server_secret=config.server.secret,
         on_log=_broadcast_survival_log,
+        server_port=config.server.port,
+        knowledge_engine=knowledge_engine,
     )
 
     # Profile builder
@@ -513,6 +519,7 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.proactive_thinking = proactive_thinking
     app.state.context_builder = context_builder
     app.state.survival_engine = survival_engine
+    app.state.knowledge_engine = knowledge_engine
     app.state.profile_builder = profile_builder
 
     # ------------------------------------------------------------------
@@ -713,6 +720,10 @@ async def create_app(config_path: str) -> FastAPI:
             title=req.title, category=req.category, content=req.content,
             actionable=req.actionable, priority=req.priority,
         )
+        if knowledge_engine:
+            asyncio.create_task(knowledge_engine.ingest_from_discovery(
+                req.title, req.content, req.category, req.priority, source_id=d_id,
+            ))
         return {"status": "ok", "id": d_id}
 
     @app.get("/api/agent/discoveries", dependencies=[Depends(verify_auth)])
@@ -805,6 +816,8 @@ async def create_app(config_path: str) -> FastAPI:
             tokens_used=req.tokens_used,
             cost_estimate=req.cost_estimate,
         )
+        if req.learned and knowledge_engine:
+            asyncio.create_task(knowledge_engine.ingest_from_review(req.learned, source_id=r_id))
         return {"status": "ok", "id": r_id}
 
     @app.get("/api/agent/reviews", dependencies=[Depends(verify_auth)])
@@ -824,6 +837,59 @@ async def create_app(config_path: str) -> FastAPI:
         items = {k: str(v) for k, v in body.items()}
         await db.set_agent_config_bulk(items)
         return await db.get_agent_config()
+
+    # ------------------------------------------------------------------
+    # Knowledge API
+    # ------------------------------------------------------------------
+
+    class KnowledgeAddRequest(BaseModel):
+        content: str
+        category: str = "lesson"
+        layer: str = "recent"
+        tags: list[str] | None = None
+        score: float = 5.0
+
+    @app.get("/api/knowledge", dependencies=[Depends(verify_auth)])
+    async def list_knowledge_entries(
+        layer: str | None = Query(None),
+        category: str | None = Query(None),
+        limit: int = Query(50),
+        include_retired: bool = Query(False),
+    ):
+        return await db.list_knowledge(limit=limit, layer=layer, category=category, include_retired=include_retired)
+
+    @app.post("/api/knowledge", dependencies=[Depends(verify_auth)])
+    async def add_knowledge_entry(req: KnowledgeAddRequest):
+        import json as _json
+        tags_json = _json.dumps(req.tags, ensure_ascii=False) if req.tags else None
+        kid = await db.add_knowledge(
+            content=req.content, category=req.category, source="manual",
+            layer=req.layer, tags=tags_json, score=req.score,
+        )
+        return {"status": "ok", "id": kid}
+
+    @app.patch("/api/knowledge/{kid}", dependencies=[Depends(verify_auth)])
+    async def update_knowledge_entry(kid: int, body: dict):
+        allowed = {"content", "category", "layer", "tags", "score", "expires_at", "retired"}
+        fields = {k: v for k, v in body.items() if k in allowed}
+        if not fields:
+            raise HTTPException(status_code=400, detail="No valid fields")
+        await db.update_knowledge(kid, **fields)
+        return {"status": "ok"}
+
+    @app.delete("/api/knowledge/{kid}", dependencies=[Depends(verify_auth)])
+    async def delete_knowledge_entry(kid: int):
+        await db.delete_knowledge(kid)
+        return {"status": "ok"}
+
+    @app.post("/api/knowledge/{kid}/promote", dependencies=[Depends(verify_auth)])
+    async def promote_knowledge_entry(kid: int):
+        await db.promote_knowledge(kid)
+        return {"status": "ok"}
+
+    @app.get("/api/knowledge/stats", dependencies=[Depends(verify_auth)])
+    async def knowledge_stats():
+        return await db.get_knowledge_stats()
 
     # ------------------------------------------------------------------
     # Prompt template management
@@ -1985,6 +2051,37 @@ async def run_server(config_path: str) -> None:
     # Start supervisor daily report
     supervisor_task = asyncio.create_task(_supervisor_loop(app))
 
+    # Start knowledge background tasks
+    knowledge_scan_task = None
+    knowledge_cleanup_task = None
+    if app.state.knowledge_engine:
+        async def _plans_scan_loop():
+            while True:
+                try:
+                    await asyncio.sleep(3600)
+                    await app.state.knowledge_engine.scan_plans(config.survival.workspace)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("Plans scan error")
+                    await asyncio.sleep(3600)
+
+        async def _knowledge_cleanup_loop():
+            while True:
+                try:
+                    now = datetime.now()
+                    if now.hour == 22 and now.minute < 2:
+                        await app.state.knowledge_engine.cleanup()
+                    await asyncio.sleep(60)
+                except asyncio.CancelledError:
+                    break
+                except Exception:
+                    logger.exception("Knowledge cleanup error")
+                    await asyncio.sleep(60)
+
+        knowledge_scan_task = asyncio.create_task(_plans_scan_loop())
+        knowledge_cleanup_task = asyncio.create_task(_knowledge_cleanup_loop())
+
     # Start cron scheduler for scheduled tasks
     from myagent.cron_scheduler import CronScheduler
     cron_sched = CronScheduler(app.state.db)
@@ -2045,6 +2142,10 @@ async def run_server(config_path: str) -> None:
         review_task.cancel()
         backup_task.cancel()
         supervisor_task.cancel()
+        if knowledge_scan_task:
+            knowledge_scan_task.cancel()
+        if knowledge_cleanup_task:
+            knowledge_cleanup_task.cancel()
         cron_task.cancel()
         if relay_task:
             app.state.relay_client.stop()

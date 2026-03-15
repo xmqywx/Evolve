@@ -86,7 +86,7 @@ class ChatSettings(BaseModel):
 
 class SurvivalSettings(BaseModel):
     enabled: bool = True
-    workspace: str = "/Users/ying/Documents/superTask/survival_workspace"
+    workspace: str = "/Users/ying/Documents/workspace"
     notify_feishu: bool = True
 
 

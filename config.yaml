@@ -57,3 +57,4 @@ jwt:
 
 survival:
   enabled: true
+  workspace: "/Users/ying/Documents/workspace"
