@@ -896,18 +896,32 @@ async def create_app(config_path: str) -> FastAPI:
     # ------------------------------------------------------------------
 
     @app.get("/api/extensions", dependencies=[Depends(verify_auth)])
-    async def list_extensions():
-        from myagent.extensions import scan_all
-        result = scan_all()
-        # Mark items installed by survival engine (match discovery records with category="tool")
+    async def list_extensions(type: str | None = Query(None)):
+        from myagent.extensions import DEFAULT_TAGS
+        items = await db.list_extensions(ext_type=type)
+        return {"items": items, "tags": DEFAULT_TAGS}
+
+    @app.post("/api/extensions/sync", dependencies=[Depends(verify_auth)])
+    async def sync_extensions():
+        from myagent.extensions import sync_to_db
+        await sync_to_db(db)
+        # Also match discovery records for installed_by
         tool_discoveries = await db.list_discoveries(category="tool", limit=200)
-        tool_titles = {d["title"].lower() for d in tool_discoveries} if tool_discoveries else set()
-        for item in result["skills"] + result["mcps"]:
-            name_lower = item["name"].lower()
-            item["installed_by"] = "survival" if any(
-                name_lower in t or t in name_lower for t in tool_titles
-            ) else None
-        return result
+        if tool_discoveries:
+            tool_titles = {d["title"].lower() for d in tool_discoveries}
+            all_exts = await db.list_extensions()
+            for ext in all_exts:
+                name_lower = ext["name"].lower()
+                if any(name_lower in t or t in name_lower for t in tool_titles):
+                    if ext.get("installed_by") != "survival":
+                        await db.update_extension(ext["id"], installed_by="survival")
+        items = await db.list_extensions()
+        return {"synced": len(items)}
+
+    @app.patch("/api/extensions/{ext_id}", dependencies=[Depends(verify_auth)])
+    async def update_extension(ext_id: int, body: dict = Body(...)):
+        await db.update_extension(ext_id, **body)
+        return await db.get_extension(ext_id)
 
     # ------------------------------------------------------------------
     # Prompt template management

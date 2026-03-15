@@ -1164,6 +1164,92 @@ class Database:
             stats["by_category"][d["category"]] = d["cnt"]
         return stats
 
+    # ------------------------------------------------------------------
+    # extensions
+    # ------------------------------------------------------------------
+
+    async def upsert_extension(self, name: str, ext_type: str, source: str,
+                               description: str = "", tags: str = "[]",
+                               path: str = "", command: str = "",
+                               installed_by: str | None = None,
+                               meta: str = "{}") -> int:
+        """Insert or update an extension. Preserves user-edited fields (description_cn, custom tags)."""
+        now = datetime.now(timezone.utc).isoformat()
+        # Check if exists
+        cursor = await self._db.execute(
+            "SELECT id, description_cn, tags FROM extensions WHERE type=? AND name=? AND source=?",
+            (ext_type, name, source),
+        )
+        existing = await cursor.fetchone()
+        if existing:
+            row = dict(existing)
+            # Keep user-edited description_cn and tags if they were manually set
+            await self._db.execute(
+                """UPDATE extensions SET description=?, path=?, command=?,
+                   installed_by=COALESCE(?, installed_by), meta=?, enabled=1, removed=0, updated_at=?
+                   WHERE id=?""",
+                (description, path, command, installed_by, meta, now, row["id"]),
+            )
+            await self._db.commit()
+            return row["id"]
+        else:
+            cursor = await self._db.execute(
+                """INSERT INTO extensions (name, type, description, description_cn, source, tags,
+                   installed_by, path, command, enabled, meta, created_at, updated_at, removed)
+                   VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, 1, ?, ?, ?, 0)""",
+                (name, ext_type, description, source, tags, installed_by,
+                 path, command, meta, now, now),
+            )
+            await self._db.commit()
+            return cursor.lastrowid
+
+    async def mark_extensions_removed(self, ext_type: str, surviving_names: list[str]) -> None:
+        """Mark extensions that are no longer found on disk as removed."""
+        if not surviving_names:
+            await self._db.execute(
+                "UPDATE extensions SET removed=1 WHERE type=? AND removed=0",
+                (ext_type,),
+            )
+        else:
+            placeholders = ",".join("?" * len(surviving_names))
+            await self._db.execute(
+                f"UPDATE extensions SET removed=1 WHERE type=? AND removed=0 AND name NOT IN ({placeholders})",
+                [ext_type] + surviving_names,
+            )
+        await self._db.commit()
+
+    async def list_extensions(self, ext_type: str | None = None,
+                              include_removed: bool = False) -> list[dict]:
+        conditions, params = [], []
+        if ext_type:
+            conditions.append("type = ?")
+            params.append(ext_type)
+        if not include_removed:
+            conditions.append("removed = 0")
+        where = " WHERE " + " AND ".join(conditions) if conditions else ""
+        cursor = await self._db.execute(
+            f"SELECT * FROM extensions{where} ORDER BY type, name", params,
+        )
+        return [dict(r) for r in await cursor.fetchall()]
+
+    async def update_extension(self, ext_id: int, **fields) -> None:
+        allowed = {"description_cn", "tags", "installed_by", "enabled"}
+        updates = {k: v for k, v in fields.items() if k in allowed}
+        if not updates:
+            return
+        updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+        set_clause = ", ".join(f"{k} = ?" for k in updates)
+        await self._db.execute(
+            f"UPDATE extensions SET {set_clause} WHERE id = ?",
+            list(updates.values()) + [ext_id],
+        )
+        await self._db.commit()
+
+    async def get_extension(self, ext_id: int) -> dict | None:
+        cursor = await self._db.execute("SELECT * FROM extensions WHERE id = ?", (ext_id,))
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
 
 # ------------------------------------------------------------------
 # helpers
@@ -1484,4 +1570,23 @@ CREATE TABLE IF NOT EXISTS knowledge_base (
 );
 CREATE INDEX IF NOT EXISTS idx_kb_layer ON knowledge_base(layer, retired);
 CREATE INDEX IF NOT EXISTS idx_kb_created ON knowledge_base(created_at);
+
+CREATE TABLE IF NOT EXISTS extensions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    description TEXT,
+    description_cn TEXT,
+    source TEXT,
+    tags TEXT,
+    installed_by TEXT,
+    path TEXT,
+    command TEXT,
+    enabled INTEGER DEFAULT 1,
+    meta TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    removed INTEGER DEFAULT 0,
+    UNIQUE(type, name, source)
+);
 """

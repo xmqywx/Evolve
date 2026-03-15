@@ -229,10 +229,58 @@ def scan_plugins() -> list[dict[str, Any]]:
 
 
 def scan_all() -> dict[str, Any]:
-    """Scan everything and return combined result."""
+    """Scan everything and return combined result (filesystem only, no DB)."""
     return {
         "skills": scan_skills(),
         "mcps": scan_mcps(),
         "plugins": scan_plugins(),
         "tags": DEFAULT_TAGS,
     }
+
+
+async def sync_to_db(db) -> None:
+    """Scan filesystem and sync to DB. Preserves user-edited fields."""
+    import json as _json
+
+    # Sync skills
+    skills = scan_skills()
+    skill_names = []
+    for s in skills:
+        skill_names.append(s["name"])
+        await db.upsert_extension(
+            name=s["name"], ext_type="skill", source=s["source"],
+            description=s["description"], tags=_json.dumps(s["tags"]),
+            path=s["path"], installed_by=s.get("installed_by"),
+            meta=_json.dumps({"plugin": s["plugin"], "version": s["version"]}),
+        )
+    await db.mark_extensions_removed("skill", skill_names)
+
+    # Sync MCPs
+    mcps = scan_mcps()
+    mcp_names = []
+    for m in mcps:
+        mcp_names.append(m["name"])
+        await db.upsert_extension(
+            name=m["name"], ext_type="mcp", source=m["scope"],
+            tags=_json.dumps(m["tags"]),
+            command=m["command"], path=m.get("source_file", ""),
+        )
+    await db.mark_extensions_removed("mcp", mcp_names)
+
+    # Sync plugins
+    plugins = scan_plugins()
+    plugin_names = []
+    for p in plugins:
+        plugin_names.append(p["name"])
+        await db.upsert_extension(
+            name=p["name"], ext_type="plugin", source=p["marketplace"],
+            tags="[]", path=p.get("path", ""),
+            meta=_json.dumps({
+                "id": p["id"], "version": p["version"],
+                "enabled": p["enabled"], "installed_at": p.get("installed_at", ""),
+            }),
+        )
+    await db.mark_extensions_removed("plugin", plugin_names)
+
+    logger.info("Extensions synced: %d skills, %d MCPs, %d plugins",
+                len(skills), len(mcps), len(plugins))
