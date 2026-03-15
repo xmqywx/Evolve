@@ -16,6 +16,7 @@ import PromptEditorPage from './pages/PromptEditor';
 import ScheduledTasksPage from './pages/ScheduledTasks';
 import SupervisorPage from './pages/Supervisor';
 import KnowledgePage from './pages/Knowledge';
+import ExtensionsPage from './pages/Extensions';
 import SettingsPage from './pages/Settings';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -43,6 +44,7 @@ export default function App() {
         <Route path="scheduled" element={<ScheduledTasksPage />} />
         <Route path="supervisor" element={<SupervisorPage />} />
         <Route path="knowledge" element={<KnowledgePage />} />
+        <Route path="extensions" element={<ExtensionsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

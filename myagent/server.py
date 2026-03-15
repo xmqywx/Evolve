@@ -892,6 +892,24 @@ async def create_app(config_path: str) -> FastAPI:
         return await db.get_knowledge_stats()
 
     # ------------------------------------------------------------------
+    # Extensions (Skills / MCP / Plugins)
+    # ------------------------------------------------------------------
+
+    @app.get("/api/extensions", dependencies=[Depends(verify_auth)])
+    async def list_extensions():
+        from myagent.extensions import scan_all
+        result = scan_all()
+        # Mark items installed by survival engine (match discovery records with category="tool")
+        tool_discoveries = await db.list_discoveries(category="tool", limit=200)
+        tool_titles = {d["title"].lower() for d in tool_discoveries} if tool_discoveries else set()
+        for item in result["skills"] + result["mcps"]:
+            name_lower = item["name"].lower()
+            item["installed_by"] = "survival" if any(
+                name_lower in t or t in name_lower for t in tool_titles
+            ) else None
+        return result
+
+    # ------------------------------------------------------------------
     # Prompt template management
     # ------------------------------------------------------------------
 
