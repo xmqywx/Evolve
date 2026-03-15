@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo.svg" width="560" alt="Evolve"/>
+  <img src="logo.svg" width="640" alt="Evolve"/>
 </p>
 
 <p align="center"><strong>AI Agent 控制平面 — 让 AI 自我管理、自我学习、自我进化。</strong></p>
