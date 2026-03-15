@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Eye, ChevronDown, ChevronRight, Loader2, BarChart3 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { apiFetch } from '../utils/api';
@@ -16,23 +17,23 @@ function formatTime(iso: string) {
   return new Date(iso).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
-function StatsBar({ stats }: { stats: string | null }) {
+function StatsBar({ stats, t }: { stats: string | null; t: (key: string) => string }) {
   if (!stats) return null;
   try {
     const s = JSON.parse(stats);
     const items = [
-      { label: '心跳', value: s.heartbeats, color: 'rgb(96,165,250)' },
-      { label: '产出', value: s.deliverables, color: 'rgb(74,222,128)' },
-      { label: '发现', value: s.discoveries, color: 'rgb(168,85,247)' },
-      { label: '工作流', value: s.workflow_runs, color: 'rgb(251,146,60)' },
-      { label: '定时', value: s.task_runs, color: 'rgb(34,211,238)' },
+      { labelKey: 'supervisor.heartbeats', value: s.heartbeats, color: 'rgb(96,165,250)' },
+      { labelKey: 'supervisor.deliverables', value: s.deliverables, color: 'rgb(74,222,128)' },
+      { labelKey: 'supervisor.discoveries', value: s.discoveries, color: 'rgb(168,85,247)' },
+      { labelKey: 'supervisor.workflowRuns', value: s.workflow_runs, color: 'rgb(251,146,60)' },
+      { labelKey: 'supervisor.taskRuns', value: s.task_runs, color: 'rgb(34,211,238)' },
     ];
     return (
       <div className="flex items-center gap-3 flex-wrap">
         {items.map(item => (
-          <span key={item.label} className="flex items-center gap-1 text-[11px]">
+          <span key={item.labelKey} className="flex items-center gap-1 text-[11px]">
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: item.color }} />
-            <span style={{ color: 'var(--text-muted)' }}>{item.label}</span>
+            <span style={{ color: 'var(--text-muted)' }}>{t(item.labelKey)}</span>
             <span style={{ color: item.value > 0 ? 'var(--text)' : 'var(--text-muted)' }}>{item.value}</span>
           </span>
         ))}
@@ -42,6 +43,7 @@ function StatsBar({ stats }: { stats: string | null }) {
 }
 
 export default function SupervisorPage() {
+  const { t } = useTranslation();
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -62,10 +64,9 @@ export default function SupervisorPage() {
     try {
       await apiFetch('/api/supervisor/generate', { method: 'POST' });
       await fetchReports();
-      // Auto-expand the newest one
       if (reports.length > 0) setExpandedId(reports[0]?.id);
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : '生成失败');
+      alert(e instanceof Error ? e.message : t('supervisor.generateFailed'));
     } finally { setGenerating(false); }
   };
 
@@ -74,14 +75,14 @@ export default function SupervisorPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Eye size={18} style={{ color: 'var(--accent)' }} />
-          <h1 className="text-lg font-semibold">监督简报</h1>
+          <h1 className="text-lg font-semibold">{t('supervisor.title')}</h1>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={handleGenerate} disabled={generating}
             className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md"
             style={{ background: 'var(--accent)', color: '#fff', opacity: generating ? 0.5 : 1 }}>
             {generating ? <Loader2 size={12} className="animate-spin" /> : <BarChart3 size={12} />}
-            {generating ? '生成中...' : '生成今日简报'}
+            {generating ? t('supervisor.generating') : t('supervisor.generateToday')}
           </button>
           <button onClick={fetchReports} disabled={loading}
             className="p-1.5 rounded-md" style={{ color: 'var(--text-muted)' }}>
@@ -92,7 +93,7 @@ export default function SupervisorPage() {
 
       <div className="text-xs px-3 py-2 rounded-md"
         style={{ background: 'rgba(96,165,250,0.08)', color: 'var(--text-secondary)' }}>
-        监督 Agent 分析生存引擎的每日活动，生成工作简报。每晚 23:00 自动生成，也可手动触发。
+        {t('supervisor.hint')}
       </div>
 
       {loading ? (
@@ -101,7 +102,7 @@ export default function SupervisorPage() {
         </div>
       ) : reports.length === 0 ? (
         <div className="text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-          暂无简报。点击「生成今日简报」开始。
+          {t('supervisor.noReports')}
         </div>
       ) : (
         <div className="space-y-2">
@@ -123,7 +124,7 @@ export default function SupervisorPage() {
                       </span>
                     </div>
                     <div className="mt-1">
-                      <StatsBar stats={report.stats} />
+                      <StatsBar stats={report.stats} t={t} />
                     </div>
                   </div>
                 </div>

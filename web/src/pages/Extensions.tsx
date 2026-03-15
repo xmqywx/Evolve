@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Puzzle, Server, Package, ChevronDown, ChevronRight, Save } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
@@ -39,8 +40,8 @@ function parseMeta(s: string | null): Record<string, unknown> {
 }
 
 function TagChip({ tag, tagDefs, active, onClick }: { tag: string; tagDefs: Tag[]; active: boolean; onClick: () => void }) {
-  const t = tagDefs.find(x => x.id === tag);
-  const color = t?.color || '#64748B';
+  const td = tagDefs.find(x => x.id === tag);
+  const color = td?.color || '#64748B';
   return (
     <button onClick={onClick}
       className="text-[11px] px-2 py-1 rounded-full transition-all"
@@ -50,7 +51,7 @@ function TagChip({ tag, tagDefs, active, onClick }: { tag: string; tagDefs: Tag[
         border: active ? `1px solid ${color}` : '1px solid transparent',
         fontWeight: active ? 600 : 400,
       }}>
-      {t?.name || tag}
+      {td?.name || tag}
     </button>
   );
 }
@@ -64,6 +65,7 @@ function SmallBadge({ bg, fg, text }: { bg: string; fg: string; text: string }) 
 }
 
 export default function ExtensionsPage() {
+  const { t } = useTranslation();
   const [items, setItems] = useState<Extension[]>([]);
   const [tagDefs, setTagDefs] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(false);
@@ -125,7 +127,7 @@ export default function ExtensionsPage() {
 
   // Collect all tags used in current tab
   const usedTags = new Set<string>();
-  items.filter(i => i.type === tab).forEach(i => parseTags(i.tags).forEach(t => usedTags.add(t)));
+  items.filter(i => i.type === tab).forEach(i => parseTags(i.tags).forEach(tg => usedTags.add(tg)));
 
   const tabCounts = {
     skill: items.filter(i => i.type === 'skill').length,
@@ -137,12 +139,12 @@ export default function ExtensionsPage() {
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-[var(--text)] flex items-center gap-2">
-          <Puzzle size={20} /> 扩展管理
+          <Puzzle size={20} /> {t('extensions.title')}
         </h1>
         <div className="flex items-center gap-2">
           <button onClick={handleSync} disabled={syncing}
             className="flex items-center gap-1 text-xs px-2.5 py-1.5 rounded-lg border border-[var(--border)] text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface-hover)] disabled:opacity-40">
-            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> 同步扫描
+            <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} /> {t('extensions.syncScan')}
           </button>
         </div>
       </div>
@@ -164,7 +166,7 @@ export default function ExtensionsPage() {
       {/* Scope filter */}
       {tab === 'skill' && (
         <div className="flex items-center gap-1.5">
-          {[['', '全部'], ['global', '全局'], ['plugin', '插件'], ['workspace', '工作区']].map(([val, label]) => (
+          {[['', t('extensions.scope')], ['global', t('extensions.scopeGlobal')], ['plugin', t('extensions.scopePlugin')], ['workspace', t('extensions.scopeWorkspace')]].map(([val, label]) => (
             <button key={val} onClick={() => setScopeFilter(val)}
               className={`text-[11px] px-2.5 py-1 rounded-full transition-all ${
                 scopeFilter === val
@@ -184,20 +186,20 @@ export default function ExtensionsPage() {
             className={`text-[11px] px-2 py-1 rounded-full transition-all ${
               !tagFilter ? 'bg-[var(--accent)] text-white' : 'bg-[var(--surface)] text-[var(--text-muted)]'
             }`}>
-            全部
+            {t('common.all')}
           </button>
-          {Array.from(usedTags).sort().map(t => (
-            <TagChip key={t} tag={t} tagDefs={tagDefs}
-              active={tagFilter === t}
-              onClick={() => setTagFilter(tagFilter === t ? '' : t)} />
+          {Array.from(usedTags).sort().map(tg => (
+            <TagChip key={tg} tag={tg} tagDefs={tagDefs}
+              active={tagFilter === tg}
+              onClick={() => setTagFilter(tagFilter === tg ? '' : tg)} />
           ))}
-          <span className="text-[10px] text-[var(--text-muted)] ml-2">{filtered.length} 个结果</span>
+          <span className="text-[10px] text-[var(--text-muted)] ml-2">{t('extensions.resultCount', { count: filtered.length })}</span>
         </div>
       )}
 
       {/* Search */}
       <input value={search} onChange={e => setSearch(e.target.value)}
-        placeholder="搜索名称或描述..."
+        placeholder={t('extensions.searchPlaceholder')}
         className="text-xs px-2.5 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] w-64" />
 
       {/* List */}
@@ -224,22 +226,22 @@ export default function ExtensionsPage() {
                       <SmallBadge
                         bg={item.source === 'local' ? 'rgba(52,211,153,0.15)' : 'rgba(96,165,250,0.15)'}
                         fg={item.source === 'local' ? 'rgb(52,211,153)' : 'rgb(96,165,250)'}
-                        text={item.source === 'local' ? '本地' : (meta.plugin as string) || '插件'} />
+                        text={item.source === 'local' ? t('extensions.local') : (meta.plugin as string) || t('extensions.plugin')} />
                     )}
                     {item.type === 'mcp' && (
                       <SmallBadge
                         bg={item.source === 'global' ? 'rgba(52,211,153,0.15)' : 'rgba(251,146,60,0.15)'}
                         fg={item.source === 'global' ? 'rgb(52,211,153)' : 'rgb(251,146,60)'}
-                        text={item.source === 'global' ? '全局' : (item.source || '').replace('project:', '')} />
+                        text={item.source === 'global' ? t('extensions.global') : (item.source || '').replace('project:', '')} />
                     )}
                     {item.type === 'plugin' && (
                       <SmallBadge
                         bg={meta.enabled ? 'rgba(52,211,153,0.15)' : 'rgba(248,113,113,0.15)'}
                         fg={meta.enabled ? 'rgb(52,211,153)' : 'rgb(248,113,113)'}
-                        text={meta.enabled ? '启用' : '禁用'} />
+                        text={meta.enabled ? t('common.enabled') : t('common.disabled')} />
                     )}
                     {item.installed_by === 'survival' && (
-                      <SmallBadge bg="rgba(248,81,73,0.15)" fg="rgb(248,81,73)" text="生存引擎安装" />
+                      <SmallBadge bg="rgba(248,81,73,0.15)" fg="rgb(248,81,73)" text={t('extensions.survivalInstalled')} />
                     )}
                     {meta.version ? <span className="text-[10px] text-[var(--text-muted)]">v{String(meta.version)}</span> : null}
                   </div>
@@ -248,10 +250,10 @@ export default function ExtensionsPage() {
                   )}
                   {!isExpanded && itemTags.length > 0 && (
                     <div className="flex items-center gap-1 mt-1">
-                      {itemTags.map(t => {
-                        const td = tagDefs.find(x => x.id === t);
+                      {itemTags.map(tg => {
+                        const td = tagDefs.find(x => x.id === tg);
                         const c = td?.color || '#64748B';
-                        return <span key={t} className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${c}15`, color: c }}>{td?.name || t}</span>;
+                        return <span key={tg} className="text-[9px] px-1 py-0.5 rounded" style={{ background: `${c}15`, color: c }}>{td?.name || tg}</span>;
                       })}
                     </div>
                   )}
@@ -264,48 +266,48 @@ export default function ExtensionsPage() {
                   {/* Original description */}
                   {item.description && (
                     <div>
-                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">原始描述</div>
+                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{t('extensions.originalDesc')}</div>
                       <div className="text-xs text-[var(--text-secondary)] leading-relaxed">{item.description}</div>
                     </div>
                   )}
 
                   {/* Chinese description — editable */}
                   <div>
-                    <div className="text-[10px] text-[var(--text-muted)] mb-0.5">中文描述</div>
+                    <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{t('extensions.chineseDesc')}</div>
                     {isEditingThis ? (
                       <div className="flex gap-2">
-                        <input value={editingCn.value}
-                          onChange={e => setEditingCn({ ...editingCn, value: e.target.value })}
+                        <input value={editingCn!.value}
+                          onChange={e => setEditingCn({ ...editingCn!, value: e.target.value })}
                           className="flex-1 text-xs px-2 py-1 rounded border border-[var(--border)] bg-[var(--bg)] text-[var(--text)]"
-                          placeholder="输入中文描述..." autoFocus />
-                        <button onClick={() => handleSaveCn(item.id, editingCn.value)}
+                          placeholder={t('extensions.chineseDescPlaceholder')} autoFocus />
+                        <button onClick={() => handleSaveCn(item.id, editingCn!.value)}
                           className="text-xs px-2 py-1 rounded bg-[var(--accent)] text-white flex items-center gap-1">
-                          <Save size={12} /> 保存
+                          <Save size={12} /> {t('common.save')}
                         </button>
                         <button onClick={() => setEditingCn(null)}
                           className="text-xs px-2 py-1 rounded border border-[var(--border)] text-[var(--text-muted)]">
-                          取消
+                          {t('common.cancel')}
                         </button>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-[var(--text)]">
-                          {item.description_cn || <span className="text-[var(--text-muted)] italic">未填写</span>}
+                          {item.description_cn || <span className="text-[var(--text-muted)] italic">{t('extensions.notFilled')}</span>}
                         </span>
                         <button onClick={() => setEditingCn({ id: item.id, value: item.description_cn || '' })}
-                          className="text-[10px] text-[var(--accent)] hover:underline">编辑</button>
+                          className="text-[10px] text-[var(--accent)] hover:underline">{t('common.edit')}</button>
                       </div>
                     )}
                   </div>
 
                   {/* Tags */}
                   <div>
-                    <div className="text-[10px] text-[var(--text-muted)] mb-0.5">标签</div>
+                    <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{t('extensions.tags')}</div>
                     <div className="flex items-center gap-1">
-                      {itemTags.map(t => {
-                        const td = tagDefs.find(x => x.id === t);
+                      {itemTags.map(tg => {
+                        const td = tagDefs.find(x => x.id === tg);
                         const c = td?.color || '#64748B';
-                        return <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${c}22`, color: c }}>{td?.name || t}</span>;
+                        return <span key={tg} className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: `${c}22`, color: c }}>{td?.name || tg}</span>;
                       })}
                     </div>
                   </div>
@@ -313,7 +315,7 @@ export default function ExtensionsPage() {
                   {/* Path */}
                   {item.path && (
                     <div>
-                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">路径</div>
+                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{t('extensions.path')}</div>
                       <div className="text-[10px] text-[var(--text-muted)] font-mono break-all">{item.path}</div>
                     </div>
                   )}
@@ -321,7 +323,7 @@ export default function ExtensionsPage() {
                   {/* Command (MCP) */}
                   {item.command && (
                     <div>
-                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">命令</div>
+                      <div className="text-[10px] text-[var(--text-muted)] mb-0.5">{t('extensions.command')}</div>
                       <div className="text-[10px] text-[var(--text-muted)] font-mono break-all">{item.command}</div>
                     </div>
                   )}
@@ -332,7 +334,7 @@ export default function ExtensionsPage() {
         })}
         {filtered.length === 0 && !loading && (
           <div className="text-center text-sm text-[var(--text-muted)] py-12">
-            {items.length === 0 ? '点击"同步扫描"发现已安装的扩展' : '无匹配结果'}
+            {items.length === 0 ? t('extensions.syncHint') : t('extensions.noMatch')}
           </div>
         )}
       </div>

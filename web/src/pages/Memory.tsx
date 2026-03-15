@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Search,
@@ -64,6 +65,7 @@ function ScoreBar({ score, label }: { score: number; label: string }) {
 }
 
 export default function MemoryPage() {
+  const { t } = useTranslation();
   const [tab, setTab] = useState<TabKey>('search');
   const [query, setQuery] = useState('');
   const [searchResults, setSearchResults] = useState<MemorySearchResult[]>([]);
@@ -148,17 +150,16 @@ export default function MemoryPage() {
   };
 
   const tabs: { key: TabKey; label: string; icon: React.ElementType }[] = [
-    { key: 'search', label: '搜索', icon: Search },
-    { key: 'observations', label: '观察', icon: FileText },
-    { key: 'timeline', label: '时间线', icon: Clock },
-    { key: 'stats', label: '统计', icon: Database },
+    { key: 'search', label: t('memory.tabSearch'), icon: Search },
+    { key: 'observations', label: t('memory.tabObservations'), icon: FileText },
+    { key: 'timeline', label: t('memory.tabTimeline'), icon: Clock },
+    { key: 'stats', label: t('memory.tabStats'), icon: Database },
   ];
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">记忆</h1>
-        {/* Project filter */}
+        <h1 className="text-xl font-semibold">{t('memory.title')}</h1>
         {projects.length > 0 && (tab === 'observations' || tab === 'timeline') && (
           <select
             value={projectFilter}
@@ -170,7 +171,7 @@ export default function MemoryPage() {
               border: '1px solid var(--border)',
             }}
           >
-            <option value="">全部项目</option>
+            <option value="">{t('memory.allProjects')}</option>
             {projects.map((p) => (
               <option key={p} value={p}>{p}</option>
             ))}
@@ -180,13 +181,13 @@ export default function MemoryPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-lg p-1" style={{ background: 'var(--surface-alt)' }}>
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.key;
+        {tabs.map((tb) => {
+          const Icon = tb.icon;
+          const active = tab === tb.key;
           return (
             <button
-              key={t.key}
-              onClick={() => setTab(t.key)}
+              key={tb.key}
+              onClick={() => setTab(tb.key)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
               style={{
                 background: active ? 'var(--surface)' : 'transparent',
@@ -194,7 +195,7 @@ export default function MemoryPage() {
               }}
             >
               <Icon size={13} />
-              {t.label}
+              {tb.label}
             </button>
           );
         })}
@@ -208,7 +209,7 @@ export default function MemoryPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-              placeholder="搜索记忆..."
+              placeholder={t('memory.searchPlaceholder')}
               className="flex-1 px-3 py-2 rounded-lg text-sm outline-none transition-colors"
               style={{
                 background: 'var(--surface-alt)',
@@ -229,7 +230,7 @@ export default function MemoryPage() {
               ) : (
                 <Search size={14} />
               )}
-              搜索
+              {t('memory.searchButton')}
             </button>
           </div>
 
@@ -268,9 +269,9 @@ export default function MemoryPage() {
                     {r.content.length > 300 ? r.content.slice(0, 300) + '...' : r.content}
                   </p>
                   <div className="space-y-0.5">
-                    <ScoreBar score={r.score} label="综合" />
-                    <ScoreBar score={r.vector_score} label="向量" />
-                    <ScoreBar score={r.keyword_score} label="关键词" />
+                    <ScoreBar score={r.score} label={t('memory.scoreOverall')} />
+                    <ScoreBar score={r.vector_score} label={t('memory.scoreVector')} />
+                    <ScoreBar score={r.keyword_score} label={t('memory.scoreKeyword')} />
                   </div>
                   {r.created_at && (
                     <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
@@ -284,7 +285,7 @@ export default function MemoryPage() {
 
           {searchResults.length === 0 && !searching && query && (
             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-              未找到相关记忆
+              {t('memory.noResults')}
             </div>
           )}
         </div>
@@ -293,19 +294,18 @@ export default function MemoryPage() {
       {/* Observations tab */}
       {tab === 'observations' && (
         <div className="space-y-3">
-          {/* Type filter */}
           <div className="flex gap-1.5 flex-wrap">
-            {['', 'feature', 'bugfix', 'discovery', 'decision', 'refactor', 'change'].map((t) => (
+            {['', 'feature', 'bugfix', 'discovery', 'decision', 'refactor', 'change'].map((tp) => (
               <button
-                key={t}
-                onClick={() => setObsTypeFilter(t)}
+                key={tp}
+                onClick={() => setObsTypeFilter(tp)}
                 className="text-[11px] px-2 py-1 rounded-md transition-colors"
                 style={{
-                  background: obsTypeFilter === t ? 'var(--accent)' : 'var(--surface-alt)',
-                  color: obsTypeFilter === t ? '#fff' : 'var(--text-muted)',
+                  background: obsTypeFilter === tp ? 'var(--accent)' : 'var(--surface-alt)',
+                  color: obsTypeFilter === tp ? '#fff' : 'var(--text-muted)',
                 }}
               >
-                {t || '全部'}
+                {tp || t('common.all')}
               </button>
             ))}
             <button
@@ -323,12 +323,12 @@ export default function MemoryPage() {
             </div>
           ) : observations.length === 0 ? (
             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-              暂无观察记录
+              {t('memory.noObservations')}
             </div>
           ) : (
             <div className="space-y-1.5">
               {observations.map((obs) => {
-                const expanded = expandedObs.has(obs.id);
+                const isExpanded = expandedObs.has(obs.id);
                 return (
                   <div
                     key={obs.id}
@@ -340,7 +340,7 @@ export default function MemoryPage() {
                       className="w-full flex items-center gap-2 px-3 py-2 text-left transition-colors"
                       style={{ background: 'var(--surface-alt)' }}
                     >
-                      {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                      {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                       <ObsTypeBadge type={obs.type} />
                       <span className="text-xs font-medium flex-1 truncate" style={{ color: 'var(--text)' }}>
                         {obs.title}
@@ -349,7 +349,7 @@ export default function MemoryPage() {
                         {formatTime(obs.created_at)}
                       </span>
                     </button>
-                    {expanded && (
+                    {isExpanded && (
                       <div className="px-3 py-2 space-y-2 text-xs" style={{ borderTop: '1px solid var(--border)' }}>
                         {obs.subtitle && (
                           <p style={{ color: 'var(--text-secondary)' }}>{obs.subtitle}</p>
@@ -361,13 +361,13 @@ export default function MemoryPage() {
                         )}
                         {obs.facts && (
                           <div>
-                            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>事实: </span>
+                            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>{t('memory.facts')}</span>
                             <span style={{ color: 'var(--text-secondary)' }}>{obs.facts}</span>
                           </div>
                         )}
                         {obs.files_modified && (
                           <div>
-                            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>修改文件: </span>
+                            <span className="font-medium" style={{ color: 'var(--text-muted)' }}>{t('memory.filesModified')}</span>
                             <span style={{ color: 'var(--text-secondary)' }}>{obs.files_modified}</span>
                           </div>
                         )}
@@ -410,7 +410,7 @@ export default function MemoryPage() {
             </div>
           ) : timeline.length === 0 ? (
             <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-              暂无时间线记录
+              {t('memory.noTimeline')}
             </div>
           ) : (
             <div className="space-y-3">
@@ -422,7 +422,7 @@ export default function MemoryPage() {
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-medium" style={{ color: 'var(--text)' }}>
-                      {s.request || '(无请求描述)'}
+                      {s.request || t('memory.noRequestDesc')}
                     </span>
                     <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
                       {formatTime(s.created_at)}
@@ -430,19 +430,19 @@ export default function MemoryPage() {
                   </div>
                   {s.completed && (
                     <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <span className="font-medium" style={{ color: 'rgb(74,222,128)' }}>已完成: </span>
+                      <span className="font-medium" style={{ color: 'rgb(74,222,128)' }}>{t('memory.completed')}</span>
                       {s.completed}
                     </div>
                   )}
                   {s.learned && (
                     <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <span className="font-medium" style={{ color: 'rgb(96,165,250)' }}>学到: </span>
+                      <span className="font-medium" style={{ color: 'rgb(96,165,250)' }}>{t('memory.learned')}</span>
                       {s.learned}
                     </div>
                   )}
                   {s.next_steps && (
                     <div className="text-xs" style={{ color: 'var(--text-secondary)' }}>
-                      <span className="font-medium" style={{ color: 'rgb(251,191,36)' }}>下一步: </span>
+                      <span className="font-medium" style={{ color: 'rgb(251,191,36)' }}>{t('memory.nextSteps')}</span>
                       {s.next_steps}
                     </div>
                   )}
@@ -478,7 +478,6 @@ export default function MemoryPage() {
             </div>
           ) : (
             <>
-              {/* MyAgent stats */}
               <div className="rounded-lg p-4 space-y-3" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2">
                   <Brain size={14} style={{ color: 'var(--accent)' }} />
@@ -489,29 +488,28 @@ export default function MemoryPage() {
                     <div className="text-lg font-semibold" style={{ color: 'var(--accent)' }}>
                       {stats.myagent.memories}
                     </div>
-                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>记忆条数</div>
+                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('memory.memoryCount')}</div>
                   </div>
                   <div className="rounded-md p-3" style={{ background: 'var(--surface)' }}>
                     <div className="text-lg font-semibold" style={{ color: 'var(--accent)' }}>
                       {stats.myagent.tasks}
                     </div>
-                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>任务总数</div>
+                    <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('memory.taskCount')}</div>
                   </div>
                 </div>
               </div>
 
-              {/* Claude-mem stats */}
               <div className="rounded-lg p-4 space-y-3" style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}>
                 <div className="flex items-center gap-2">
                   <Activity size={14} style={{ color: 'rgb(139,92,246)' }} />
                   <span className="text-sm font-medium">Claude-Mem</span>
                   {stats.claude_mem.available ? (
                     <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(74,222,128,0.15)', color: 'rgb(74,222,128)' }}>
-                      可用
+                      {t('memory.available')}
                     </span>
                   ) : (
                     <span className="text-[10px] px-1.5 py-0.5 rounded" style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}>
-                      不可用
+                      {t('memory.unavailable')}
                     </span>
                   )}
                 </div>
@@ -519,10 +517,10 @@ export default function MemoryPage() {
                   <>
                     <div className="grid grid-cols-4 gap-3">
                       {[
-                        { label: '观察', value: stats.claude_mem.total_observations },
-                        { label: '会话', value: stats.claude_mem.total_sessions },
-                        { label: '摘要', value: stats.claude_mem.total_summaries },
-                        { label: '提示', value: stats.claude_mem.total_prompts },
+                        { label: t('memory.observation'), value: stats.claude_mem.total_observations },
+                        { label: t('memory.session'), value: stats.claude_mem.total_sessions },
+                        { label: t('memory.summary'), value: stats.claude_mem.total_summaries },
+                        { label: t('memory.prompt'), value: stats.claude_mem.total_prompts },
                       ].map((item) => (
                         <div key={item.label} className="rounded-md p-3" style={{ background: 'var(--surface)' }}>
                           <div className="text-lg font-semibold" style={{ color: 'rgb(139,92,246)' }}>
@@ -533,11 +531,10 @@ export default function MemoryPage() {
                       ))}
                     </div>
 
-                    {/* Observations by type */}
                     {stats.claude_mem.observations_by_type && Object.keys(stats.claude_mem.observations_by_type).length > 0 && (
                       <div>
                         <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
-                          观察类型分布
+                          {t('memory.obsTypeDistribution')}
                         </div>
                         <div className="flex gap-2 flex-wrap">
                           {Object.entries(stats.claude_mem.observations_by_type).map(([type, count]) => (
@@ -550,11 +547,10 @@ export default function MemoryPage() {
                       </div>
                     )}
 
-                    {/* Top projects */}
                     {stats.claude_mem.top_projects && Object.keys(stats.claude_mem.top_projects).length > 0 && (
                       <div>
                         <div className="text-xs font-medium mb-2" style={{ color: 'var(--text-muted)' }}>
-                          活跃项目
+                          {t('memory.activeProjects')}
                         </div>
                         <div className="space-y-1">
                           {Object.entries(stats.claude_mem.top_projects)

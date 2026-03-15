@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Package,
@@ -13,22 +14,6 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { AgentDeliverable } from '../utils/types';
-
-const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; color: string }> = {
-  code: { icon: Code, label: '代码', color: 'rgb(96,165,250)' },
-  research: { icon: BookOpen, label: '研究', color: 'rgb(139,92,246)' },
-  article: { icon: FileText, label: '文章', color: 'rgb(74,222,128)' },
-  template: { icon: Package, label: '模板', color: 'rgb(251,191,36)' },
-  script: { icon: Zap, label: '脚本', color: 'rgb(248,113,113)' },
-  tool: { icon: Wrench, label: '工具', color: 'rgb(156,163,175)' },
-};
-
-const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
-  draft: { color: 'var(--text-muted)', label: '草稿' },
-  ready: { color: 'rgb(96,165,250)', label: '就绪' },
-  published: { color: 'rgb(74,222,128)', label: '已发布' },
-  pushed: { color: 'rgb(139,92,246)', label: '已推送' },
-};
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false });
@@ -45,6 +30,24 @@ interface ProjectInfo {
 }
 
 export default function OutputPage() {
+  const { t } = useTranslation();
+
+  const TYPE_CONFIG: Record<string, { icon: React.ElementType; label: string; color: string }> = {
+    code: { icon: Code, label: t('output.typeCode'), color: 'rgb(96,165,250)' },
+    research: { icon: BookOpen, label: t('output.typeResearch'), color: 'rgb(139,92,246)' },
+    article: { icon: FileText, label: t('output.typeArticle'), color: 'rgb(74,222,128)' },
+    template: { icon: Package, label: t('output.typeTemplate'), color: 'rgb(251,191,36)' },
+    script: { icon: Zap, label: t('output.typeScript'), color: 'rgb(248,113,113)' },
+    tool: { icon: Wrench, label: t('output.typeTool'), color: 'rgb(156,163,175)' },
+  };
+
+  const STATUS_CONFIG: Record<string, { color: string; label: string }> = {
+    draft: { color: 'var(--text-muted)', label: t('output.statusDraft') },
+    ready: { color: 'rgb(96,165,250)', label: t('output.statusReady') },
+    published: { color: 'rgb(74,222,128)', label: t('output.statusPublished') },
+    pushed: { color: 'rgb(139,92,246)', label: t('output.statusPushed') },
+  };
+
   const [deliverables, setDeliverables] = useState<AgentDeliverable[]>([]);
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
@@ -94,10 +97,10 @@ export default function OutputPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">产出</h1>
+        <h1 className="text-xl font-semibold">{t('output.title')}</h1>
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {deliverables.length} 个产出
+            {t('output.count', { count: deliverables.length })}
           </span>
           <button
             onClick={fetchDeliverables}
@@ -116,7 +119,7 @@ export default function OutputPage() {
           <button onClick={() => setShowProjects(!showProjects)}
             className="flex items-center gap-2 text-sm font-semibold mb-2" style={{ color: 'var(--text)' }}>
             <FolderOpen size={16} />
-            项目总览 ({projects.length})
+            {t('output.projectOverview')} ({projects.length})
             <ChevronDown size={14} className={`transition-transform ${showProjects ? '' : '-rotate-90'}`} />
           </button>
           {showProjects && (
@@ -127,12 +130,12 @@ export default function OutputPage() {
                     <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>{p.name}</span>
                     {p.has_readme
                       ? <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(52,211,153,0.15)', color: 'rgb(52,211,153)' }}>README</span>
-                      : <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}>无README</span>}
+                      : <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}>{t('output.noReadme')}</span>}
                     {p.has_git && <span className="text-[9px] px-1 rounded" style={{ background: 'rgba(96,165,250,0.15)', color: 'rgb(96,165,250)' }}>git</span>}
                   </div>
                   {p.description && <div className="text-xs mt-1 line-clamp-2" style={{ color: 'var(--text-muted)' }}>{p.description}</div>}
                   <div className="text-[10px] mt-1.5" style={{ color: 'var(--text-muted)' }}>
-                    {p.file_count} 文件
+                    {t('output.filesCount', { count: p.file_count })}
                     {p.last_commit && ` · ${p.last_commit.split('|')[1] || ''}`}
                   </div>
                 </div>
@@ -145,23 +148,23 @@ export default function OutputPage() {
       {/* Filters */}
       <div className="flex gap-4 flex-wrap">
         <div className="flex gap-1 items-center">
-          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>类型:</span>
-          {['', ...types].map((t) => (
+          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('output.type')}</span>
+          {['', ...types].map((tp) => (
             <button
-              key={t}
-              onClick={() => setTypeFilter(t)}
+              key={tp}
+              onClick={() => setTypeFilter(tp)}
               className="text-[11px] px-2 py-0.5 rounded-md transition-colors"
               style={{
-                background: typeFilter === t ? 'var(--accent)' : 'var(--surface-alt)',
-                color: typeFilter === t ? '#fff' : 'var(--text-muted)',
+                background: typeFilter === tp ? 'var(--accent)' : 'var(--surface-alt)',
+                color: typeFilter === tp ? '#fff' : 'var(--text-muted)',
               }}
             >
-              {t ? TYPE_CONFIG[t]?.label || t : '全部'}
+              {tp ? TYPE_CONFIG[tp]?.label || tp : t('common.all')}
             </button>
           ))}
         </div>
         <div className="flex gap-1 items-center">
-          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>状态:</span>
+          <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('output.status')}</span>
           {['', ...statuses].map((s) => (
             <button
               key={s}
@@ -172,7 +175,7 @@ export default function OutputPage() {
                 color: statusFilter === s ? '#fff' : 'var(--text-muted)',
               }}
             >
-              {s ? STATUS_CONFIG[s]?.label || s : '全部'}
+              {s ? STATUS_CONFIG[s]?.label || s : t('common.all')}
             </button>
           ))}
         </div>
@@ -185,7 +188,7 @@ export default function OutputPage() {
         </div>
       ) : deliverables.length === 0 ? (
         <div className="text-center py-12 text-sm" style={{ color: 'var(--text-muted)' }}>
-          暂无产出记录
+          {t('output.noRecords')}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

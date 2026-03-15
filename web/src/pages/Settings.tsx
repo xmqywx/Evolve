@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { RefreshCw, Trash2, AlertTriangle, Clock } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
@@ -10,6 +11,7 @@ interface CronJob {
 }
 
 export default function SettingsPage() {
+  const { t } = useTranslation();
   const [jobs, setJobs] = useState<CronJob[]>([]);
   const [raw, setRaw] = useState('');
   const [loading, setLoading] = useState(true);
@@ -35,7 +37,7 @@ export default function SettingsPage() {
   };
 
   const handleClearAll = async () => {
-    if (!confirm('确认清除所有定时任务？')) return;
+    if (!confirm(t('settings.confirmClearAll'))) return;
     try {
       await apiFetch('/api/system/cron', { method: 'DELETE' });
       fetchCron();
@@ -44,14 +46,14 @@ export default function SettingsPage() {
 
   return (
     <div className="space-y-6 max-w-3xl">
-      <h1 className="text-xl font-semibold">设置</h1>
+      <h1 className="text-xl font-semibold">{t('settings.title')}</h1>
 
       {/* Cron Jobs */}
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock size={16} style={{ color: 'var(--accent)' }} />
-            <span className="text-sm font-medium">系统定时任务 (crontab)</span>
+            <span className="text-sm font-medium">{t('settings.cronJobs')}</span>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={fetchCron} disabled={loading} className="p-1.5 rounded-md" style={{ color: 'var(--text-muted)' }}>
@@ -61,7 +63,7 @@ export default function SettingsPage() {
               <button onClick={handleClearAll} className="flex items-center gap-1 px-2 py-1 text-xs rounded-md"
                 style={{ color: 'rgb(248,113,113)', border: '1px solid rgba(248,113,113,0.3)' }}>
                 <Trash2 size={11} />
-                全部清除
+                {t('settings.clearAll')}
               </button>
             )}
           </div>
@@ -71,7 +73,7 @@ export default function SettingsPage() {
           <div className="flex items-start gap-2 px-3 py-2 rounded-md text-xs"
             style={{ background: 'rgba(251,191,36,0.1)', color: 'rgb(251,191,36)' }}>
             <AlertTriangle size={14} className="shrink-0 mt-0.5" />
-            <span>以下定时任务由 Agent 直接创建在系统 crontab 中，不受 MyAgent 管控。建议删除后改用工作流管理。</span>
+            <span>{t('settings.cronWarning')}</span>
           </div>
         )}
 
@@ -81,7 +83,7 @@ export default function SettingsPage() {
           </div>
         ) : jobs.length === 0 ? (
           <div className="text-sm py-4 text-center" style={{ color: 'var(--text-muted)' }}>
-            无定时任务
+            {t('settings.noCronJobs')}
           </div>
         ) : (
           <div className="space-y-2">
@@ -100,7 +102,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <button onClick={() => handleDelete(job.id)} className="p-1 rounded shrink-0"
-                  style={{ color: 'var(--text-muted)' }} title="删除">
+                  style={{ color: 'var(--text-muted)' }} title={t('common.delete')}>
                   <Trash2 size={14} />
                 </button>
               </div>
@@ -110,7 +112,7 @@ export default function SettingsPage() {
 
         {raw && (
           <details className="text-xs">
-            <summary className="cursor-pointer" style={{ color: 'var(--text-muted)' }}>原始 crontab</summary>
+            <summary className="cursor-pointer" style={{ color: 'var(--text-muted)' }}>{t('settings.rawCrontab')}</summary>
             <pre className="mt-1 p-2 rounded-md overflow-auto font-mono text-[11px]"
               style={{ background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>
               {raw}

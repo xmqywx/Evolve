@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import type { CSSProperties, ReactElement } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Send,
@@ -108,7 +109,7 @@ function detectChoices(text: string): ChoiceOption[] {
 
   const lastLine = tail[tail.length - 1]?.trim() || '';
   if (/\(y\/n\)/i.test(lastLine) || /\(yes\/no\)/i.test(lastLine)) {
-    return [{ label: '是', value: 'yes' }, { label: '否', value: 'no' }];
+    return [{ label: 'Yes', value: 'yes' }, { label: 'No', value: 'no' }];
   }
 
   return [];
@@ -200,23 +201,23 @@ function buildDisplayMessages(messages: SessionMessage[]): DisplayMessage[] {
 
 function roleLabel(type: string): { label: string; color: string } {
   const map: Record<string, { label: string; color: string }> = {
-    user: { label: '用户', color: 'rgb(96,165,250)' },
+    user: { label: 'User', color: 'rgb(96,165,250)' },
     assistant: { label: 'Claude', color: 'rgb(74,222,128)' },
-    system: { label: '系统', color: 'rgb(251,191,36)' },
+    system: { label: 'System', color: 'rgb(251,191,36)' },
   };
   return map[type] || { label: type, color: 'var(--text-muted)' };
 }
 
 const TOOL_LABELS: Record<string, string> = {
-  Bash: '执行命令',
-  Read: '读取文件',
-  Edit: '编辑文件',
-  Write: '写入文件',
-  Grep: '搜索中',
-  Glob: '查找文件',
-  Agent: '使用代理',
-  WebSearch: '搜索网页',
-  WebFetch: '获取URL',
+  Bash: 'Running command',
+  Read: 'Reading file',
+  Edit: 'Editing file',
+  Write: 'Writing file',
+  Grep: 'Searching',
+  Glob: 'Finding files',
+  Agent: 'Using agent',
+  WebSearch: 'Searching web',
+  WebFetch: 'Fetching URL',
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -244,7 +245,7 @@ function MessageRow(props: any): ReactElement | null {
             {role.label}
           </span>
           {msg.isThinking && (
-            <span className="text-[10px]" style={{ color: 'rgb(139,92,246)' }}>思考中</span>
+            <span className="text-[10px]" style={{ color: 'rgb(139,92,246)' }}>Thinking</span>
           )}
           {msg.tools.length > 0 && (
             <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
@@ -318,7 +319,7 @@ function MessageRow(props: any): ReactElement | null {
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(74,222,128)'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgb(74,222,128)'; }}
             >
-              继续
+              Continue
             </button>
             <button
               onClick={() => onStop?.()}
@@ -327,7 +328,7 @@ function MessageRow(props: any): ReactElement | null {
               onMouseEnter={(e) => { e.currentTarget.style.background = 'rgb(248,113,113)'; e.currentTarget.style.color = '#fff'; }}
               onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'rgb(248,113,113)'; }}
             >
-              停止
+              Stop
             </button>
           </div>
         )}
@@ -337,6 +338,7 @@ function MessageRow(props: any): ReactElement | null {
 }
 
 export default function SessionsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { id: activeId } = useParams<{ id: string }>();
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -419,17 +421,17 @@ export default function SessionsPage() {
         setSessions((prev) => prev.filter((s) => s.id !== sessionId));
         setArchivedSessions((prev) => [updated, ...prev]);
         if (activeId === sessionId) navigate('/sessions');
-        showToast('已归档');
+        showToast(t('sessions.archivedToast'));
       } else if (updates.archived === false) {
         setArchivedSessions((prev) => prev.filter((s) => s.id !== sessionId));
         setSessions((prev) => [updated, ...prev]);
-        showToast('已恢复');
+        showToast(t('sessions.restoredToast'));
       } else {
         setSessions((prev) => prev.map((s) => s.id === sessionId ? updated : s));
         if (activeSession?.id === sessionId) setActiveSession(updated);
       }
     } catch {
-      showToast('更新失败');
+      showToast(t('sessions.updateFailed'));
     }
   }, [activeId, activeSession, navigate, showToast]);
 
@@ -443,10 +445,10 @@ export default function SessionsPage() {
   const handleStop = useCallback(async (sessionId: string) => {
     try {
       await apiFetch(`/api/sessions/${sessionId}/stop`, { method: 'POST' });
-      showToast('已发送中断信号');
+      showToast(t('sessions.interruptSent'));
       setClaudeStatus('');
     } catch {
-      showToast('中断失败');
+      showToast(t('sessions.interruptFailed'));
     }
   }, [showToast]);
 
@@ -518,11 +520,11 @@ export default function SessionsPage() {
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const p = evt as any;
             if (p.content?.type === 'tool_use' || p.tool_name) {
-              latestStatus = `使用 ${p.tool_name || p.content?.name || '工具'}...`;
+              latestStatus = t('sessions.usingTool', { tool: p.tool_name || p.content?.name || 'tool' });
             } else if (p.content?.thinking || p.thinking) {
-              latestStatus = '思考中...';
+              latestStatus = t('sessions.thinkingEllipsis');
             } else {
-              latestStatus = '处理中...';
+              latestStatus = t('sessions.processing');
             }
           } else if (evt.type === 'user' || evt.type === 'assistant') {
             newMsgs.push(evt);
@@ -598,7 +600,7 @@ export default function SessionsPage() {
     setImages([]);
     const displayParts: string[] = [];
     if (text) displayParts.push(text);
-    if (currentImages.length > 0) displayParts.push(`[${currentImages.length} 张图片]`);
+    if (currentImages.length > 0) displayParts.push(t('sessions.imagesCount', { count: currentImages.length }));
     const tempMsg: SessionMessage = {
       uuid: `temp-${Date.now()}`,
       type: 'user',
@@ -607,7 +609,7 @@ export default function SessionsPage() {
     const thinkingMsg: SessionMessage = {
       uuid: `thinking-${Date.now()}`,
       type: 'assistant',
-      message: { role: 'assistant', content: '_等待 Claude 回复..._' },
+      message: { role: 'assistant', content: t('sessions.waitingReply') },
     };
     setMessages((prev) => [...prev, tempMsg, thinkingMsg]);
     currentImages.forEach((img) => URL.revokeObjectURL(img.preview));
@@ -639,18 +641,18 @@ export default function SessionsPage() {
         };
         setMessages((prev) => [...prev, assistantMsg]);
       } else if (res.status === 'streaming') {
-        setClaudeStatus('处理中...');
+        setClaudeStatus(t('sessions.processing'));
       } else if (res.status === 'busy') {
-        showToast('会话正在终端中运行，无法通过控制台发送消息');
+        showToast(t('sessions.sessionInTerminal'));
       } else if (res.status === 'error') {
-        showToast(res.error || 'Claude 返回了一个错误');
+        showToast(res.error || t('sessions.claudeError'));
       }
       if ((res.status === 'ok' || res.status === 'streaming') && activeSession?.status !== 'active') {
         updateSessionMeta(activeId, { status: 'active' });
       }
     } catch {
       setMessages((prev) => prev.filter((m) => m.uuid !== thinkingMsg.uuid));
-      showToast('发送消息失败');
+      showToast(t('sessions.sendFailed'));
     } finally {
       setSending(false);
     }
@@ -668,7 +670,7 @@ export default function SessionsPage() {
     const thinkingMsg: SessionMessage = {
       uuid: `thinking-${Date.now()}`,
       type: 'assistant',
-      message: { role: 'assistant', content: '_等待 Claude 回复..._' },
+      message: { role: 'assistant', content: t('sessions.waitingReply') },
     };
     setMessages((prev) => [...prev, tempMsg, thinkingMsg]);
     setInputText('');
@@ -687,11 +689,11 @@ export default function SessionsPage() {
           };
           setMessages((prev) => [...prev, assistantMsg]);
         } else if (res.status === 'error') {
-          showToast(res.error || 'Claude 返回了一个错误');
+          showToast(res.error || t('sessions.claudeError'));
         }
       } catch {
         setMessages((prev) => prev.filter((m) => m.uuid !== thinkingMsg.uuid));
-        showToast('发送选择失败');
+        showToast(t('sessions.sendChoiceFailed'));
       } finally {
         setSending(false);
       }
@@ -796,7 +798,7 @@ export default function SessionsPage() {
         style={{ width: 260, borderRight: '1px solid var(--border)' }}
       >
         <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium">会话</span>
+          <span className="text-sm font-medium">{t('sessions.title')}</span>
           <button onClick={fetchSessions} className="p-1 rounded-md" style={{ color: 'var(--text-muted)' }}>
             <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -811,7 +813,7 @@ export default function SessionsPage() {
             {activeSessions.length > 0 && (
               <div className="mb-3">
                 <span className="text-[11px] uppercase" style={{ color: 'var(--text-muted)' }}>
-                  活跃 ({activeSessions.length})
+                  {t('sessions.active')} ({activeSessions.length})
                 </span>
                 {activeSessions.map((s) => renderSessionItem(s, true, false))}
               </div>
@@ -819,7 +821,7 @@ export default function SessionsPage() {
             {otherSessions.length > 0 && (
               <div className="mb-3">
                 <span className="text-[11px] uppercase" style={{ color: 'var(--text-muted)' }}>
-                  最近 ({otherSessions.length})
+                  {t('sessions.recent')} ({otherSessions.length})
                 </span>
                 {otherSessions.slice(0, 30).map((s) => renderSessionItem(s, false, true))}
               </div>
@@ -836,13 +838,13 @@ export default function SessionsPage() {
               >
                 <Archive size={11} />
                 <span className="text-[11px] uppercase">
-                  已归档 {archivedSessions.length > 0 ? `(${archivedSessions.length})` : ''}
+                  {t('sessions.archived')} {archivedSessions.length > 0 ? `(${archivedSessions.length})` : ''}
                 </span>
               </button>
               {showArchived && (
                 <div>
                   {archivedSessions.length === 0 ? (
-                    <span className="text-[11px] ml-4" style={{ color: 'var(--text-muted)' }}>暂无已归档会话</span>
+                    <span className="text-[11px] ml-4" style={{ color: 'var(--text-muted)' }}>{t('sessions.noArchivedSessions')}</span>
                   ) : (
                     archivedSessions.map((s) => (
                       <div
@@ -874,7 +876,7 @@ export default function SessionsPage() {
         {!activeId ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2" style={{ color: 'var(--text-muted)' }}>
             <Terminal size={48} style={{ opacity: 0.3 }} />
-            <span className="text-sm">选择一个会话查看消息</span>
+            <span className="text-sm">{t('sessions.selectSession')}</span>
           </div>
         ) : msgLoading ? (
           <div className="flex-1 flex items-center justify-center">
@@ -930,7 +932,7 @@ export default function SessionsPage() {
                     style={{ border: '1px solid rgb(248,113,113)', color: 'rgb(248,113,113)' }}
                   >
                     <StopCircle size={11} />
-                    停止
+                    {t('sessions.stop')}
                   </button>
                 )}
                 <span
@@ -940,7 +942,7 @@ export default function SessionsPage() {
                     marginLeft: activeSession.status !== 'active' || !activeSession.pid ? 'auto' : 8,
                   }}
                 >
-                  {displayMessages.length} 条消息
+                  {t('sessions.messagesCount', { count: displayMessages.length })}
                 </span>
               </div>
             )}
@@ -951,7 +953,7 @@ export default function SessionsPage() {
                 className="px-3 py-2 flex flex-wrap items-center gap-2 shrink-0"
                 style={{ borderBottom: '1px solid var(--border)', background: 'var(--surface-alt)' }}
               >
-                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>别名:</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('sessions.alias')}</span>
                 <input
                   className="text-xs px-2 py-1 rounded outline-none"
                   defaultValue={activeSession.alias || ''}
@@ -973,7 +975,7 @@ export default function SessionsPage() {
                     color: 'var(--text)',
                   }}
                 />
-                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>颜色:</span>
+                <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('sessions.color')}</span>
                 {PRESET_COLORS.map((c) => (
                   <div
                     key={c}
@@ -997,7 +999,7 @@ export default function SessionsPage() {
                   className="ml-auto text-[11px] px-2 py-0.5 rounded"
                   style={{ color: 'var(--text-muted)' }}
                 >
-                  关闭
+                  {t('sessions.close')}
                 </button>
               </div>
             )}
@@ -1019,7 +1021,7 @@ export default function SessionsPage() {
             <div className="flex-1 overflow-hidden">
               {displayMessages.length === 0 ? (
                 <div className="text-center pt-16 text-sm" style={{ color: 'var(--text-muted)' }}>
-                  该会话暂无消息
+                  {t('sessions.noMessages')}
                 </div>
               ) : (
                 <List
@@ -1106,7 +1108,7 @@ export default function SessionsPage() {
                         }
                       }
                     }}
-                    placeholder={sending ? 'Claude 工作中... Cmd+Enter 停止' : '回车换行，Cmd+Enter 发送...'}
+                    placeholder={sending ? t('sessions.sendPlaceholderWorking') : t('sessions.sendPlaceholder')}
                     rows={1}
                     className="flex-1 text-sm px-3 py-1.5 rounded-lg outline-none resize-none"
                     style={{
@@ -1123,7 +1125,7 @@ export default function SessionsPage() {
                       style={{ border: '1px solid rgb(248,113,113)', color: 'rgb(248,113,113)' }}
                     >
                       <X size={14} />
-                      停止
+                      {t('sessions.stop')}
                     </button>
                   ) : (
                     <button

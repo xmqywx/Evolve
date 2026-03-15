@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { Lock } from 'lucide-react';
 import { login, isLoggedIn } from '../utils/api';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { t } = useTranslation();
   const [secret, setSecret] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,7 +24,7 @@ export default function LoginPage() {
       await login(secret);
       navigate('/', { replace: true });
     } catch {
-      setError('认证失败');
+      setError(t('login.error'));
     } finally {
       setLoading(false);
     }
@@ -32,15 +34,15 @@ export default function LoginPage() {
     <div className="flex items-center justify-center min-h-screen bg-[var(--surface)]">
       <div className="w-full max-w-sm p-8 border border-[var(--border)] rounded-xl bg-[var(--surface-alt)]">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-[var(--accent)]">MyAgent</h1>
-          <p className="text-sm text-[var(--text-muted)] mt-1">AI 控制面板</p>
+          <h1 className="text-2xl font-bold text-[var(--accent)]">{t('login.title')}</h1>
+          <p className="text-sm text-[var(--text-muted)] mt-1">{t('login.subtitle')}</p>
         </div>
 
         <div className="relative mb-4">
           <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
           <input
             type="password"
-            placeholder="输入密钥"
+            placeholder={t('login.placeholder')}
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleLogin()}
@@ -64,7 +66,7 @@ export default function LoginPage() {
                      disabled:opacity-50 disabled:cursor-not-allowed
                      transition-colors"
         >
-          {loading ? '登录中...' : '登录'}
+          {loading ? t('login.loading') : t('login.button')}
         </button>
       </div>
     </div>

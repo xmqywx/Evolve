@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw, Trash2, Clock, Play, Pause, ChevronDown, ChevronRight,
   Plus, X, Zap, Loader2,
@@ -36,33 +37,34 @@ function formatTime(iso: string | null) {
   } catch { return iso; }
 }
 
-function StatusBadge({ enabled }: { enabled: boolean }) {
+function StatusBadge({ enabled, t }: { enabled: boolean; t: (key: string) => string }) {
   return enabled ? (
     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'rgba(52,211,153,0.15)', color: 'rgb(52,211,153)' }}>
-      启用
+      {t('common.enabled')}
     </span>
   ) : (
     <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}>
-      禁用
+      {t('common.disabled')}
     </span>
   );
 }
 
-function RunStatusBadge({ status }: { status: string }) {
-  const colors: Record<string, { bg: string; fg: string; label: string }> = {
-    success: { bg: 'rgba(52,211,153,0.15)', fg: 'rgb(52,211,153)', label: '成功' },
-    failed: { bg: 'rgba(248,113,113,0.15)', fg: 'rgb(248,113,113)', label: '失败' },
-    running: { bg: 'rgba(96,165,250,0.15)', fg: 'rgb(96,165,250)', label: '执行中' },
+function RunStatusBadge({ status, t }: { status: string; t: (key: string) => string }) {
+  const colors: Record<string, { bg: string; fg: string; labelKey: string }> = {
+    success: { bg: 'rgba(52,211,153,0.15)', fg: 'rgb(52,211,153)', labelKey: 'common.success' },
+    failed: { bg: 'rgba(248,113,113,0.15)', fg: 'rgb(248,113,113)', labelKey: 'common.failed' },
+    running: { bg: 'rgba(96,165,250,0.15)', fg: 'rgb(96,165,250)', labelKey: 'common.running' },
   };
   const c = colors[status] || colors.running;
   return (
     <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: c.bg, color: c.fg }}>
-      {c.label}
+      {t(c.labelKey)}
     </span>
   );
 }
 
 export default function ScheduledTasksPage() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<ScheduledTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -100,7 +102,7 @@ export default function ScheduledTasksPage() {
   };
 
   const deleteTask = async (id: number) => {
-    if (!confirm('确认删除此定时任务？')) return;
+    if (!confirm(t('scheduled.confirmDelete'))) return;
     try {
       await apiFetch(`/api/scheduled-tasks/${id}`, { method: 'DELETE' });
       if (expandedId === id) setExpandedId(null);
@@ -112,7 +114,6 @@ export default function ScheduledTasksPage() {
     setTriggeringId(task.id);
     try {
       await apiFetch(`/api/scheduled-tasks/${task.id}/trigger`, { method: 'POST' });
-      // Auto-expand to show result
       setExpandedId(task.id);
       await loadRuns(task.id);
       fetchTasks();
@@ -157,7 +158,7 @@ export default function ScheduledTasksPage() {
       setShowCreate(false);
       fetchTasks();
     } catch (e: unknown) {
-      alert(e instanceof Error ? e.message : '创建失败');
+      alert(e instanceof Error ? e.message : t('scheduled.createFailed'));
     } finally { setCreating(false); }
   };
 
@@ -166,7 +167,7 @@ export default function ScheduledTasksPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock size={18} style={{ color: 'var(--accent)' }} />
-          <h1 className="text-lg font-semibold">定时任务</h1>
+          <h1 className="text-lg font-semibold">{t('scheduled.title')}</h1>
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             ({tasks.length})
           </span>
@@ -175,7 +176,7 @@ export default function ScheduledTasksPage() {
           <button onClick={() => setShowCreate(!showCreate)}
             className="flex items-center gap-1 px-2.5 py-1.5 text-xs rounded-md"
             style={{ background: 'var(--accent)', color: '#fff' }}>
-            <Plus size={12} /> 手动创建
+            <Plus size={12} /> {t('scheduled.manualCreate')}
           </button>
           <button onClick={fetchTasks} disabled={loading}
             className="p-1.5 rounded-md" style={{ color: 'var(--text-muted)' }}>
@@ -187,37 +188,37 @@ export default function ScheduledTasksPage() {
       {/* Hint */}
       <div className="text-xs px-3 py-2 rounded-md"
         style={{ background: 'rgba(96,165,250,0.08)', color: 'var(--text-secondary)' }}>
-        生存引擎通过 API 自动创建定时任务，MyAgent 负责调度执行和管理。你可以在此启用/禁用/删除任务。
+        {t('scheduled.hint')}
       </div>
 
       {/* Create form */}
       {showCreate && (
         <div className="p-3 rounded-lg space-y-2" style={{ border: '1px solid var(--border)', background: 'var(--surface-alt)' }}>
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium">创建定时任务</span>
+            <span className="text-sm font-medium">{t('scheduled.createTitle')}</span>
             <button onClick={() => setShowCreate(false)} className="p-1" style={{ color: 'var(--text-muted)' }}>
               <X size={14} />
             </button>
           </div>
           <input value={formName} onChange={e => setFormName(e.target.value)}
-            placeholder="任务名称" className="w-full px-2 py-1.5 text-sm rounded-md"
+            placeholder={t('scheduled.taskName')} className="w-full px-2 py-1.5 text-sm rounded-md"
             style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }} />
           <div className="flex gap-2">
             <input value={formCron} onChange={e => setFormCron(e.target.value)}
-              placeholder="Cron 表达式 (如 28 12 * * *)" className="flex-1 px-2 py-1.5 text-sm font-mono rounded-md"
+              placeholder={t('scheduled.cronExpression')} className="flex-1 px-2 py-1.5 text-sm font-mono rounded-md"
               style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }} />
           </div>
           <input value={formDesc} onChange={e => setFormDesc(e.target.value)}
-            placeholder="描述 (可选)" className="w-full px-2 py-1.5 text-sm rounded-md"
+            placeholder={t('scheduled.descriptionOptional')} className="w-full px-2 py-1.5 text-sm rounded-md"
             style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }} />
           <input value={formCmd} onChange={e => setFormCmd(e.target.value)}
-            placeholder="执行命令 (完整脚本路径)" className="w-full px-2 py-1.5 text-sm font-mono rounded-md"
+            placeholder={t('scheduled.executeCommand')} className="w-full px-2 py-1.5 text-sm font-mono rounded-md"
             style={{ border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text)' }} />
           <div className="flex justify-end">
             <button onClick={handleCreate} disabled={creating || !formName.trim() || !formCron.trim() || !formCmd.trim()}
               className="px-3 py-1.5 text-xs rounded-md"
               style={{ background: 'var(--accent)', color: '#fff', opacity: (creating || !formName.trim() || !formCron.trim() || !formCmd.trim()) ? 0.4 : 1 }}>
-              {creating ? '创建中...' : '创建'}
+              {creating ? t('scheduled.creating') : t('scheduled.create')}
             </button>
           </div>
         </div>
@@ -230,7 +231,7 @@ export default function ScheduledTasksPage() {
         </div>
       ) : tasks.length === 0 ? (
         <div className="text-sm py-8 text-center" style={{ color: 'var(--text-muted)' }}>
-          暂无定时任务。生存引擎会通过 API 自动创建。
+          {t('scheduled.noTasks')}
         </div>
       ) : (
         <div className="space-y-2">
@@ -248,7 +249,7 @@ export default function ScheduledTasksPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium truncate">{task.name}</span>
-                    <StatusBadge enabled={!!task.enabled} />
+                    <StatusBadge enabled={!!task.enabled} t={t} />
                     <span className="text-[11px] font-mono px-1.5 py-0.5 rounded"
                       style={{ background: 'var(--surface)', color: 'var(--accent)' }}>
                       {task.cron_expr}
@@ -265,22 +266,22 @@ export default function ScheduledTasksPage() {
                 </div>
                 <div className="shrink-0 text-right space-y-0.5">
                   <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                    下次: {formatTime(task.next_run_at)}
+                    {t('scheduled.nextRun', { time: formatTime(task.next_run_at) })}
                   </div>
                   <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                    上次: {formatTime(task.last_run_at)}
+                    {t('scheduled.lastRun', { time: formatTime(task.last_run_at) })}
                   </div>
                 </div>
                 <div className="shrink-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
-                  <button onClick={() => triggerTask(task)} title="立即执行" disabled={isTriggering}
+                  <button onClick={() => triggerTask(task)} title={t('scheduled.triggerNow')} disabled={isTriggering}
                     className="p-1 rounded" style={{ color: isTriggering ? 'var(--text-muted)' : 'rgb(52,211,153)' }}>
                     {isTriggering ? <Loader2 size={13} className="animate-spin" /> : <Zap size={13} />}
                   </button>
-                  <button onClick={() => toggleEnabled(task)} title={task.enabled ? '禁用' : '启用'}
+                  <button onClick={() => toggleEnabled(task)} title={task.enabled ? t('common.disabled') : t('common.enabled')}
                     className="p-1 rounded" style={{ color: task.enabled ? 'var(--accent)' : 'var(--text-muted)' }}>
                     {task.enabled ? <Pause size={13} /> : <Play size={13} />}
                   </button>
-                  <button onClick={() => deleteTask(task.id)} title="删除"
+                  <button onClick={() => deleteTask(task.id)} title={t('common.delete')}
                     className="p-1 rounded" style={{ color: 'var(--text-muted)' }}>
                     <Trash2 size={13} />
                   </button>
@@ -292,7 +293,7 @@ export default function ScheduledTasksPage() {
                 <div className="px-3 pb-3 pt-1" style={{ borderTop: '1px solid var(--border)' }}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>
-                      执行记录
+                      {t('scheduled.runHistory')}
                     </div>
                     <button onClick={() => loadRuns(task.id)} className="p-0.5 rounded" style={{ color: 'var(--text-muted)' }}>
                       <RefreshCw size={11} className={runsLoading ? 'animate-spin' : ''} />
@@ -304,7 +305,7 @@ export default function ScheduledTasksPage() {
                     </div>
                   ) : runs.length === 0 ? (
                     <div className="text-xs py-2 text-center" style={{ color: 'var(--text-muted)' }}>
-                      暂无执行记录
+                      {t('scheduled.noRunHistory')}
                     </div>
                   ) : (
                     <div className="space-y-1.5">
@@ -314,7 +315,6 @@ export default function ScheduledTasksPage() {
                         return (
                           <div key={run.id} className="rounded overflow-hidden"
                             style={{ background: 'var(--surface)' }}>
-                            {/* Run summary row */}
                             <div
                               className={`flex items-center gap-2 text-xs px-2 py-1.5 ${hasDetail ? 'cursor-pointer' : ''}`}
                               onClick={() => hasDetail && setExpandedRunId(isRunExpanded ? null : run.id)}
@@ -324,7 +324,7 @@ export default function ScheduledTasksPage() {
                                   {isRunExpanded ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
                                 </span>
                               )}
-                              <RunStatusBadge status={run.status} />
+                              <RunStatusBadge status={run.status} t={t} />
                               <span style={{ color: 'var(--text-muted)' }}>{formatTime(run.started_at)}</span>
                               {run.finished_at && (
                                 <span style={{ color: 'var(--text-muted)' }}>
@@ -343,17 +343,16 @@ export default function ScheduledTasksPage() {
                               )}
                               {!hasDetail && (
                                 <span className="flex-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                                  无输出
+                                  {t('scheduled.noOutput')}
                                 </span>
                               )}
                             </div>
-                            {/* Run detail */}
                             {isRunExpanded && hasDetail && (
                               <div className="px-2 pb-2">
                                 {run.error && (
                                   <div className="mt-1">
                                     <div className="text-[10px] font-medium mb-0.5" style={{ color: 'rgb(248,113,113)' }}>
-                                      错误
+                                      {t('scheduled.error')}
                                     </div>
                                     <pre className="text-[11px] font-mono p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap"
                                       style={{ background: 'rgba(248,113,113,0.08)', color: 'rgb(248,113,113)' }}>
@@ -364,7 +363,7 @@ export default function ScheduledTasksPage() {
                                 {run.output && (
                                   <div className="mt-1">
                                     <div className="text-[10px] font-medium mb-0.5" style={{ color: 'var(--text-muted)' }}>
-                                      输出
+                                      {t('scheduled.output')}
                                     </div>
                                     <pre className="text-[11px] font-mono p-2 rounded overflow-auto max-h-48 whitespace-pre-wrap"
                                       style={{ background: 'var(--surface-alt)', color: 'var(--text-secondary)' }}>

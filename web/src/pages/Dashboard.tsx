@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import {
   Monitor,
   Zap,
@@ -50,31 +51,34 @@ interface HealthInfo {
 }
 
 /* ─── Status tag map ─── */
-const STATUS_MAP: Record<string, { label: string; color: string }> = {
-  idea: { label: '想法', color: 'rgb(156,163,175)' },
-  evaluating: { label: '评估中', color: 'rgb(96,165,250)' },
-  prototyping: { label: '原型中', color: 'rgb(34,211,238)' },
-  developing: { label: '开发中', color: 'rgb(59,130,246)' },
-  launched: { label: '已上线', color: 'rgb(74,222,128)' },
-  revenue: { label: '有收入', color: 'rgb(250,204,21)' },
-  abandoned: { label: '已放弃', color: 'rgb(248,113,113)' },
+const STATUS_MAP_KEYS: Record<string, { labelKey: string; color: string }> = {
+  idea: { labelKey: 'dashboard.statusIdea', color: 'rgb(156,163,175)' },
+  evaluating: { labelKey: 'dashboard.statusEvaluating', color: 'rgb(96,165,250)' },
+  prototyping: { labelKey: 'dashboard.statusPrototyping', color: 'rgb(34,211,238)' },
+  developing: { labelKey: 'dashboard.statusDeveloping', color: 'rgb(59,130,246)' },
+  launched: { labelKey: 'dashboard.statusLaunched', color: 'rgb(74,222,128)' },
+  revenue: { labelKey: 'dashboard.statusRevenue', color: 'rgb(250,204,21)' },
+  abandoned: { labelKey: 'dashboard.statusAbandoned', color: 'rgb(248,113,113)' },
 };
 
 /* ─── Helpers ─── */
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return '刚刚';
-  if (mins < 60) return `${mins} 分钟前`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours} 小时前`;
-  const days = Math.floor(hours / 24);
-  return `${days} 天前`;
-}
+/* timeAgo is defined inside the component to access t() */
 
 /* ─── Component ─── */
 export default function DashboardPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
+
+  function timeAgo(dateStr: string): string {
+    const diff = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t('dashboard.justNow');
+    if (mins < 60) return t('dashboard.minutesAgo', { count: mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t('dashboard.hoursAgo', { count: hours });
+    const days = Math.floor(hours / 24);
+    return t('dashboard.daysAgo', { count: days });
+  }
 
   /* state */
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -184,14 +188,14 @@ export default function DashboardPage() {
   const pendingUpgrades = agentStats?.pending_upgrades ?? 0;
 
   const statCards = [
-    { label: '活跃会话', value: activeSessions, icon: Monitor, accent: 'var(--accent)' },
-    { label: '运行中任务', value: runningTasks, icon: Zap, accent: 'rgb(250,204,21)' },
-    { label: '今日交付', value: deliverablesToday, icon: Rocket, accent: 'rgb(34,211,238)' },
-    { label: '待审升级', value: pendingUpgrades, icon: AlertTriangle, accent: 'rgb(251,191,36)' },
-    { label: '记忆数', value: memories, icon: Brain, accent: 'rgb(168,85,247)' },
-    { label: '观察数', value: observations, icon: Eye, accent: 'rgb(34,211,238)' },
-    { label: '已完成/总任务', value: `${doneTasks}/${totalTasks}`, icon: CheckCircle, accent: 'rgb(74,222,128)' },
-    { label: 'API 剩余', value: apiRemaining, icon: Cpu, accent: 'rgb(96,165,250)' },
+    { label: t('dashboard.activeSessions'), value: activeSessions, icon: Monitor, accent: 'var(--accent)' },
+    { label: t('dashboard.runningTasks'), value: runningTasks, icon: Zap, accent: 'rgb(250,204,21)' },
+    { label: t('dashboard.todayDeliverables'), value: deliverablesToday, icon: Rocket, accent: 'rgb(34,211,238)' },
+    { label: t('dashboard.pendingUpgrades'), value: pendingUpgrades, icon: AlertTriangle, accent: 'rgb(251,191,36)' },
+    { label: t('dashboard.memoryCount'), value: memories, icon: Brain, accent: 'rgb(168,85,247)' },
+    { label: t('dashboard.observationCount'), value: observations, icon: Eye, accent: 'rgb(34,211,238)' },
+    { label: t('dashboard.completedTotalTasks'), value: `${doneTasks}/${totalTasks}`, icon: CheckCircle, accent: 'rgb(74,222,128)' },
+    { label: t('dashboard.apiRemaining'), value: apiRemaining, icon: Cpu, accent: 'rgb(96,165,250)' },
   ];
 
   const healthServices: { key: string; label: string; icon: React.ElementType }[] = [
@@ -208,7 +212,7 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold" style={{ color: 'var(--text)' }}>
-          控制台
+          {t('dashboard.title')}
         </h1>
         {loading && (
           <RefreshCw size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
@@ -244,7 +248,7 @@ export default function DashboardPage() {
         <div className="flex items-center gap-2 mb-3">
           <Activity size={16} style={{ color: 'var(--text-secondary)' }} />
           <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-            系统健康
+            {t('dashboard.systemHealth')}
           </span>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -275,7 +279,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Flame size={16} style={{ color: 'rgb(74,222,128)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-              Agent 状态
+              {t('dashboard.agentStatus')}
             </span>
             <span className="text-[10px] ml-auto" style={{ color: 'var(--text-muted)' }}>
               {timeAgo(latestHeartbeat.created_at)}
@@ -283,19 +287,19 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>当前活动</div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('dashboard.currentActivity')}</div>
               <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>
                 {latestHeartbeat.activity}
               </div>
             </div>
             <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>描述</div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('dashboard.description')}</div>
               <div className="text-sm" style={{ color: 'var(--text-secondary)' }}>
-                {latestHeartbeat.description || '无描述'}
+                {latestHeartbeat.description || t('dashboard.noDescription')}
               </div>
             </div>
             <div className="rounded-md p-3" style={{ background: 'var(--surface-alt)' }}>
-              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>进度</div>
+              <div className="text-xs mb-1" style={{ color: 'var(--text-muted)' }}>{t('dashboard.progress')}</div>
               <div className="flex items-center gap-2">
                 <div className="flex-1 h-2 rounded-full" style={{ background: 'var(--border)' }}>
                   <div
@@ -330,7 +334,7 @@ export default function DashboardPage() {
           ) : (
             <BookOpen size={14} />
           )}
-          每日回顾
+          {t('dashboard.dailyReview')}
         </button>
         <button
           onClick={fetchAll}
@@ -340,7 +344,7 @@ export default function DashboardPage() {
           onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface)')}
         >
           <RefreshCw size={14} />
-          刷新
+          {t('common.refresh')}
         </button>
         <button
           onClick={() => navigate('/memory')}
@@ -350,7 +354,7 @@ export default function DashboardPage() {
           onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface)')}
         >
           <Brain size={14} />
-          记忆
+          {t('dashboard.memory')}
         </button>
       </div>
 
@@ -377,7 +381,7 @@ export default function DashboardPage() {
               ) : (
                 <Rocket size={12} />
               )}
-              触发评估
+              {t('dashboard.triggerEval')}
             </button>
             <button
               onClick={() => setShowAddProject(true)}
@@ -387,18 +391,19 @@ export default function DashboardPage() {
               onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-alt)')}
             >
               <Plus size={12} />
-              添加项目
+              {t('dashboard.addProject')}
             </button>
           </div>
         </div>
         {projects.length === 0 ? (
           <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            暂无项目
+            {t('dashboard.noProjects')}
           </p>
         ) : (
           <div className="space-y-2">
             {projects.map((proj) => {
-              const st = STATUS_MAP[proj.status] || { label: proj.status, color: 'var(--text-muted)' };
+              const stk = STATUS_MAP_KEYS[proj.status] || { labelKey: '', color: 'var(--text-muted)' };
+              const st = { label: stk.labelKey ? t(stk.labelKey) : proj.status, color: stk.color };
               return (
                 <div
                   key={proj.id}
@@ -435,12 +440,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <Monitor size={16} style={{ color: 'var(--accent)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-              活跃会话
+              {t('dashboard.activeSessionsTitle')}
             </span>
           </div>
           {sessions.filter((s) => !s.archived).length === 0 ? (
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              暂无活跃会话
+              {t('dashboard.noActiveSessions')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -486,12 +491,12 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2 mb-3">
             <ListTodo size={16} style={{ color: 'rgb(250,204,21)' }} />
             <span className="text-sm font-medium" style={{ color: 'var(--text)' }}>
-              最近任务
+              {t('dashboard.recentTasks')}
             </span>
           </div>
           {tasks.length === 0 ? (
             <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-              暂无任务
+              {t('dashboard.noTasks')}
             </p>
           ) : (
             <div className="space-y-2">
@@ -545,7 +550,7 @@ export default function DashboardPage() {
           >
             <div className="flex items-center justify-between">
               <span className="text-sm font-semibold" style={{ color: 'var(--text)' }}>
-                添加项目
+                {t('dashboard.addProjectModal')}
               </span>
               <button
                 onClick={() => setShowAddProject(false)}
@@ -560,7 +565,7 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  项目名称
+                  {t('dashboard.projectName')}
                 </label>
                 <input
                   type="text"
@@ -574,13 +579,13 @@ export default function DashboardPage() {
                   }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
-                  placeholder="输入项目名称"
+                  placeholder={t('dashboard.projectNamePlaceholder')}
                   autoFocus
                 />
               </div>
               <div>
                 <label className="block text-xs mb-1" style={{ color: 'var(--text-secondary)' }}>
-                  描述 (可选)
+                  {t('dashboard.descriptionOptional')}
                 </label>
                 <textarea
                   value={newProjectDesc}
@@ -594,7 +599,7 @@ export default function DashboardPage() {
                   }}
                   onFocus={(e) => (e.currentTarget.style.borderColor = 'var(--accent)')}
                   onBlur={(e) => (e.currentTarget.style.borderColor = 'var(--border)')}
-                  placeholder="简要描述项目"
+                  placeholder={t('dashboard.descriptionPlaceholder')}
                 />
               </div>
             </div>
@@ -606,7 +611,7 @@ export default function DashboardPage() {
                 onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--surface-hover)')}
                 onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--surface-alt)')}
               >
-                取消
+                {t('common.cancel')}
               </button>
               <button
                 onClick={handleAddProject}
@@ -622,7 +627,7 @@ export default function DashboardPage() {
                 {actionLoading === 'addProject' ? (
                   <RefreshCw size={14} className="animate-spin" />
                 ) : (
-                  '确认'
+                  t('common.confirm')
                 )}
               </button>
             </div>

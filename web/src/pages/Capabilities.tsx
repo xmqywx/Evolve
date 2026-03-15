@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Globe,
@@ -20,82 +21,76 @@ import type { AgentUpgrade } from '../utils/types';
 
 interface Capability {
   key: string;
-  label: string;
+  labelKey: string;
   icon: React.ElementType;
-  description: string;
+  descKey: string;
   enabled: boolean;
 }
-
-const DEFAULT_CAPABILITIES: Capability[] = [
-  { key: 'browser_access', label: '浏览器访问', icon: Globe, description: '允许 Agent 使用浏览器访问网页', enabled: true },
-  { key: 'code_execution', label: '代码执行', icon: TerminalIcon, description: '允许 Agent 执行代码和命令', enabled: true },
-  { key: 'file_write', label: '文件系统写入', icon: FolderOpen, description: '允许 Agent 写入文件系统', enabled: true },
-  { key: 'git_push', label: 'Git 推送', icon: GitBranch, description: '允许 Agent 推送代码到远程仓库', enabled: true },
-  { key: 'spend_money', label: '花钱', icon: DollarSign, description: '允许 Agent 进行付费操作', enabled: false },
-  { key: 'feishu_notify', label: '飞书通知', icon: MessageSquare, description: '允许 Agent 发送飞书消息', enabled: true },
-  { key: 'install_packages', label: '安装包', icon: Package, description: '允许 Agent 安装软件包', enabled: false },
-];
-
-interface BehaviorSetting {
-  key: string;
-  label: string;
-  icon: React.ElementType;
-  options: { value: string; label: string }[];
-  current: string;
-}
-
-const DEFAULT_BEHAVIORS: BehaviorSetting[] = [
-  {
-    key: 'autonomy',
-    label: '自主程度',
-    icon: Shield,
-    options: [
-      { value: 'conservative', label: '保守' },
-      { value: 'balanced', label: '平衡' },
-      { value: 'aggressive', label: '积极' },
-    ],
-    current: 'balanced',
-  },
-  {
-    key: 'report_frequency',
-    label: '汇报频率',
-    icon: Activity,
-    options: [
-      { value: 'every_step', label: '每步' },
-      { value: 'milestone', label: '里程碑' },
-      { value: 'result_only', label: '仅结果' },
-    ],
-    current: 'milestone',
-  },
-  {
-    key: 'risk_tolerance',
-    label: '风险容忍',
-    icon: Gauge,
-    options: [
-      { value: 'safe_only', label: '安全' },
-      { value: 'moderate', label: '适中' },
-      { value: 'experimental', label: '实验' },
-    ],
-    current: 'moderate',
-  },
-  {
-    key: 'work_pace',
-    label: '工作节奏',
-    icon: Clock,
-    options: [
-      { value: 'deep_focus', label: '深度' },
-      { value: 'balanced', label: '平衡' },
-      { value: 'multi_task', label: '多线' },
-    ],
-    current: 'balanced',
-  },
-];
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false });
 }
 
 export default function CapabilitiesPage() {
+  const { t } = useTranslation();
+
+  const DEFAULT_CAPABILITIES: Capability[] = [
+    { key: 'browser_access', labelKey: 'capabilities.browserAccess', icon: Globe, descKey: 'capabilities.browserAccessDesc', enabled: true },
+    { key: 'code_execution', labelKey: 'capabilities.codeExecution', icon: TerminalIcon, descKey: 'capabilities.codeExecutionDesc', enabled: true },
+    { key: 'file_write', labelKey: 'capabilities.fileWrite', icon: FolderOpen, descKey: 'capabilities.fileWriteDesc', enabled: true },
+    { key: 'git_push', labelKey: 'capabilities.gitPush', icon: GitBranch, descKey: 'capabilities.gitPushDesc', enabled: true },
+    { key: 'spend_money', labelKey: 'capabilities.spendMoney', icon: DollarSign, descKey: 'capabilities.spendMoneyDesc', enabled: false },
+    { key: 'feishu_notify', labelKey: 'capabilities.feishuNotify', icon: MessageSquare, descKey: 'capabilities.feishuNotifyDesc', enabled: true },
+    { key: 'install_packages', labelKey: 'capabilities.installPackages', icon: Package, descKey: 'capabilities.installPackagesDesc', enabled: false },
+  ];
+
+  interface BehaviorSetting {
+    key: string;
+    labelKey: string;
+    icon: React.ElementType;
+    options: { value: string; labelKey: string }[];
+    current: string;
+  }
+
+  const DEFAULT_BEHAVIORS: BehaviorSetting[] = [
+    {
+      key: 'autonomy', labelKey: 'capabilities.autonomy', icon: Shield,
+      options: [
+        { value: 'conservative', labelKey: 'capabilities.conservative' },
+        { value: 'balanced', labelKey: 'capabilities.balanced' },
+        { value: 'aggressive', labelKey: 'capabilities.aggressive' },
+      ],
+      current: 'balanced',
+    },
+    {
+      key: 'report_frequency', labelKey: 'capabilities.reportFrequency', icon: Activity,
+      options: [
+        { value: 'every_step', labelKey: 'capabilities.everyStep' },
+        { value: 'milestone', labelKey: 'capabilities.milestone' },
+        { value: 'result_only', labelKey: 'capabilities.resultOnly' },
+      ],
+      current: 'milestone',
+    },
+    {
+      key: 'risk_tolerance', labelKey: 'capabilities.riskTolerance', icon: Gauge,
+      options: [
+        { value: 'safe_only', labelKey: 'capabilities.safeOnly' },
+        { value: 'moderate', labelKey: 'capabilities.moderate' },
+        { value: 'experimental', labelKey: 'capabilities.experimental' },
+      ],
+      current: 'moderate',
+    },
+    {
+      key: 'work_pace', labelKey: 'capabilities.workPace', icon: Clock,
+      options: [
+        { value: 'deep_focus', labelKey: 'capabilities.deepFocus' },
+        { value: 'balanced', labelKey: 'capabilities.balanced' },
+        { value: 'multi_task', labelKey: 'capabilities.multiTask' },
+      ],
+      current: 'balanced',
+    },
+  ];
+
   const [capabilities, setCapabilities] = useState<Capability[]>(DEFAULT_CAPABILITIES);
   const [behaviors, setBehaviors] = useState<BehaviorSetting[]>(DEFAULT_BEHAVIORS);
   const [upgrades, setUpgrades] = useState<AgentUpgrade[]>([]);
@@ -105,14 +100,12 @@ export default function CapabilitiesPage() {
   const fetchConfig = useCallback(async () => {
     try {
       const data = await apiFetch<Record<string, string>>('/api/agent/config');
-      // Apply saved values to capabilities
       setCapabilities((prev) =>
         prev.map((c) => {
           const saved = data[`cap_${c.key}`];
           return saved !== undefined ? { ...c, enabled: saved === 'true' } : c;
         }),
       );
-      // Apply saved values to behaviors
       setBehaviors((prev) =>
         prev.map((b) => {
           const saved = data[`beh_${b.key}`];
@@ -153,7 +146,7 @@ export default function CapabilitiesPage() {
     });
   };
 
-  const setBehavior = (key: string, value: string) => {
+  const setBehaviorValue = (key: string, value: string) => {
     setBehaviors((prev) =>
       prev.map((b) => b.key === key ? { ...b, current: value } : b),
     );
@@ -177,7 +170,7 @@ export default function CapabilitiesPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="text-xl font-semibold">能力</h1>
+      <h1 className="text-xl font-semibold">{t('capabilities.title')}</h1>
 
       {!configLoaded && (
         <div className="flex justify-center py-4">
@@ -185,10 +178,9 @@ export default function CapabilitiesPage() {
         </div>
       )}
 
-      {/* Capability toggles */}
       <div className="space-y-2">
         <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-          能力开关
+          {t('capabilities.capabilityToggles')}
         </h2>
         <div className="rounded-lg overflow-hidden" style={{ border: '1px solid var(--border)' }}>
           {capabilities.map((cap, i) => {
@@ -204,8 +196,8 @@ export default function CapabilitiesPage() {
               >
                 <Icon size={16} style={{ color: cap.enabled ? 'var(--accent)' : 'var(--text-muted)' }} />
                 <div className="flex-1">
-                  <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>{cap.label}</div>
-                  <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{cap.description}</div>
+                  <div className="text-sm font-medium" style={{ color: 'var(--text)' }}>{t(cap.labelKey)}</div>
+                  <div className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t(cap.descKey)}</div>
                 </div>
                 <button
                   onClick={() => toggleCapability(cap.key)}
@@ -223,10 +215,9 @@ export default function CapabilitiesPage() {
         </div>
       </div>
 
-      {/* Behavior settings */}
       <div className="space-y-2">
         <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-          行为调节
+          {t('capabilities.behaviorSettings')}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {behaviors.map((b) => {
@@ -239,20 +230,20 @@ export default function CapabilitiesPage() {
               >
                 <div className="flex items-center gap-2">
                   <Icon size={14} style={{ color: 'var(--accent)' }} />
-                  <span className="text-sm font-medium">{b.label}</span>
+                  <span className="text-sm font-medium">{t(b.labelKey)}</span>
                 </div>
                 <div className="flex gap-1">
                   {b.options.map((opt) => (
                     <button
                       key={opt.value}
-                      onClick={() => setBehavior(b.key, opt.value)}
+                      onClick={() => setBehaviorValue(b.key, opt.value)}
                       className="flex-1 text-xs py-1.5 rounded-md transition-colors"
                       style={{
                         background: b.current === opt.value ? 'var(--accent)' : 'var(--surface)',
                         color: b.current === opt.value ? '#fff' : 'var(--text-muted)',
                       }}
                     >
-                      {opt.label}
+                      {t(opt.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -262,17 +253,16 @@ export default function CapabilitiesPage() {
         </div>
       </div>
 
-      {/* Upgrade proposals */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
-            升级提议
+            {t('capabilities.upgradeProposals')}
             {pendingUpgrades.length > 0 && (
               <span
                 className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full"
                 style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}
               >
-                {pendingUpgrades.length} 待审
+                {t('capabilities.pendingReview', { count: pendingUpgrades.length })}
               </span>
             )}
           </h2>
@@ -291,11 +281,10 @@ export default function CapabilitiesPage() {
           </div>
         ) : upgrades.length === 0 ? (
           <div className="text-center py-8 text-sm" style={{ color: 'var(--text-muted)' }}>
-            暂无升级提议
+            {t('capabilities.noUpgradeProposals')}
           </div>
         ) : (
           <div className="space-y-2">
-            {/* Pending first */}
             {pendingUpgrades.map((u) => (
               <div
                 key={u.id}
@@ -324,12 +313,12 @@ export default function CapabilitiesPage() {
                       color: u.risk === 'high' ? 'rgb(248,113,113)' : u.risk === 'medium' ? 'rgb(251,191,36)' : 'rgb(74,222,128)',
                     }}
                   >
-                    风险: {u.risk}
+                    {t('capabilities.risk', { level: u.risk })}
                   </span>
                 </div>
                 {u.impact && (
                   <div className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    预期: {u.impact}
+                    {t('capabilities.expectedImpact', { impact: u.impact })}
                   </div>
                 )}
                 <div className="flex gap-2 pt-1">
@@ -339,7 +328,7 @@ export default function CapabilitiesPage() {
                     style={{ background: 'rgba(74,222,128,0.15)', color: 'rgb(74,222,128)' }}
                   >
                     <Check size={12} />
-                    批准
+                    {t('capabilities.approve')}
                   </button>
                   <button
                     onClick={() => handleUpgradeAction(u.id, 'rejected')}
@@ -347,7 +336,7 @@ export default function CapabilitiesPage() {
                     style={{ background: 'rgba(248,113,113,0.15)', color: 'rgb(248,113,113)' }}
                   >
                     <X size={12} />
-                    拒绝
+                    {t('capabilities.reject')}
                   </button>
                 </div>
                 <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
@@ -356,7 +345,6 @@ export default function CapabilitiesPage() {
               </div>
             ))}
 
-            {/* Resolved */}
             {resolvedUpgrades.map((u) => (
               <div
                 key={u.id}
@@ -370,7 +358,7 @@ export default function CapabilitiesPage() {
                     color: u.status === 'approved' ? 'rgb(74,222,128)' : 'rgb(248,113,113)',
                   }}
                 >
-                  {u.status === 'approved' ? '已批准' : '已拒绝'}
+                  {u.status === 'approved' ? t('capabilities.approved') : t('capabilities.rejected')}
                 </span>
                 <span className="text-xs flex-1" style={{ color: 'var(--text-secondary)' }}>
                   {u.proposal}

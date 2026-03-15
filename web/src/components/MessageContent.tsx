@@ -39,7 +39,7 @@ function TaskNotificationCard({ taskId, status, summary }: { taskId: string; sta
     }`}>
       <div className="flex items-center gap-1.5 mb-0.5">
         {isError ? <XCircle size={12} className="text-red-400" /> : <CheckCircle size={12} className="text-green-400" />}
-        <span className="font-mono text-[var(--text-muted)]">任务 {taskId.slice(0, 8)}</span>
+        <span className="font-mono text-[var(--text-muted)]">Task {taskId.slice(0, 8)}</span>
         <span className={`px-1.5 py-0.5 rounded text-[10px] ${
           isError ? 'bg-red-500/20 text-red-400' : 'bg-green-500/20 text-green-400'
         }`}>

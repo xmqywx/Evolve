@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebLinksAddon } from '@xterm/addon-web-links';
@@ -13,6 +14,7 @@ interface ChatStatus {
 }
 
 export default function ChatPage() {
+  const { t } = useTranslation();
   const [status, setStatus] = useState<ChatStatus | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
@@ -171,21 +173,21 @@ export default function ChatPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h1 className="text-lg font-semibold">AI 对话</h1>
+          <h1 className="text-lg font-semibold">{t('chat.title')}</h1>
           {isRunning ? (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">运行中</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-green-500/20 text-green-400">{t('chat.running')}</span>
           ) : (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)]">已停止</span>
+            <span className="text-xs px-2 py-0.5 rounded-full bg-[var(--surface-alt)] text-[var(--text-muted)]">{t('chat.stopped')}</span>
           )}
-          {connected && <span className="text-xs text-green-400">已连接</span>}
+          {connected && <span className="text-xs text-green-400">{t('chat.connected')}</span>}
           {status?.pid && <span className="text-xs text-[var(--text-muted)]">PID: {status.pid}</span>}
         </div>
         <div className="flex items-center gap-2">
           {isRunning ? (
-            <button onClick={handleStop} className="px-3 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">停止会话</button>
+            <button onClick={handleStop} className="px-3 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors">{t('chat.stopSession')}</button>
           ) : (
             <button onClick={handleStart} disabled={loading} className="px-3 py-1.5 text-xs rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors">
-              {loading ? '启动中...' : '启动 Claude'}
+              {loading ? t('chat.starting') : t('chat.startClaude')}
             </button>
           )}
         </div>
@@ -199,26 +201,26 @@ export default function ChatPage() {
       {/* Input */}
       {isRunning && (
         <div className="flex gap-2">
-          <button onClick={handleInterrupt} className="px-2 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors" title="Ctrl+C 中断">中断</button>
+          <button onClick={handleInterrupt} className="px-2 py-1.5 text-xs rounded-lg border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-colors" title="Ctrl+C">{t('chat.interrupt')}</button>
           <textarea
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); handleSend(); } }}
-            placeholder="输入消息... (Cmd+Enter 发送)"
+            placeholder={t('chat.inputPlaceholder')}
             rows={1}
             disabled={sending}
             className="flex-1 px-3 py-1.5 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-[var(--text)] placeholder:text-[var(--text-muted)] focus:outline-none focus:ring-1 focus:ring-[var(--accent)] resize-none text-sm"
           />
           <button onClick={handleSend} disabled={!inputValue.trim() || sending}
             className="px-3 py-1.5 text-xs rounded-lg bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)] disabled:opacity-50 transition-colors">
-            发送
+            {t('chat.send')}
           </button>
         </div>
       )}
       {/* Footer */}
       <div className="flex justify-between px-2 text-[11px] text-[var(--text-muted)]">
-        <span>{isRunning ? '通过输入框发送消息，也可点击终端直接输入' : '点击「启动 Claude」开始对话'}</span>
-        <span>终端: <code>tmux attach -t chat</code></span>
+        <span>{isRunning ? t('chat.footerRunning') : t('chat.footerStopped')}</span>
+        <span>Terminal: <code>tmux attach -t chat</code></span>
       </div>
     </div>
   );

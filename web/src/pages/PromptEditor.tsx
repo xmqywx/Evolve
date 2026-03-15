@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Save,
   RefreshCw,
@@ -18,16 +19,18 @@ interface PromptData {
   rendered: string;
 }
 
-const VARIABLE_DOCS: Record<string, string> = {
-  '{projects_text}': '当前生存项目列表（从数据库读取）',
-  '{profile_text}': '最近洞察/画像数据',
-  '{caps_text}': '能力配置（在「能力」页面设置）',
-  '{behs_text}': '行为配置（在「能力」页面设置）',
-  '{skills_text}': '技能库/工作流列表（启用的工作流）',
-  '{ws}': '工作目录路径',
-};
-
 export default function PromptEditorPage() {
+  const { t } = useTranslation();
+
+  const VARIABLE_DOCS: Record<string, string> = {
+    '{projects_text}': t('prompt.varProjects'),
+    '{profile_text}': t('prompt.varProfile'),
+    '{caps_text}': t('prompt.varCaps'),
+    '{behs_text}': t('prompt.varBehs'),
+    '{skills_text}': t('prompt.varSkills'),
+    '{ws}': t('prompt.varWs'),
+  };
+
   const [data, setData] = useState<PromptData | null>(null);
   const [template, setTemplate] = useState('');
   const [loading, setLoading] = useState(true);
@@ -111,20 +114,20 @@ export default function PromptEditorPage() {
       {/* Header */}
       <div className="flex items-center justify-between shrink-0 mb-3">
         <div>
-          <h1 className="text-xl font-semibold">Prompt 配置</h1>
+          <h1 className="text-xl font-semibold">{t('prompt.title')}</h1>
           <p className="text-xs mt-0.5" style={{ color: 'var(--text-muted)' }}>
-            编辑生存引擎的 Identity Prompt 模板
+            {t('prompt.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <span className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-            {lineCount} 行
+            {t('prompt.linesCount', { count: lineCount })}
           </span>
           <button
             onClick={handleCopy}
             className="p-1.5 rounded-md"
             style={{ color: 'var(--text-muted)' }}
-            title="复制"
+            title={t('common.copy')}
           >
             {copied ? <Check size={14} style={{ color: 'rgb(74,222,128)' }} /> : <Copy size={14} />}
           </button>
@@ -132,7 +135,7 @@ export default function PromptEditorPage() {
             onClick={() => setShowPreview(!showPreview)}
             className="p-1.5 rounded-md"
             style={{ color: showPreview ? 'var(--accent)' : 'var(--text-muted)' }}
-            title={showPreview ? '编辑模式' : '预览渲染结果'}
+            title={showPreview ? t('prompt.editMode') : t('prompt.previewMode')}
           >
             {showPreview ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
@@ -141,17 +144,17 @@ export default function PromptEditorPage() {
             disabled={saving || loading}
             className="flex items-center gap-1 px-2 py-1 rounded-md text-xs"
             style={{ color: 'var(--text-muted)', border: '1px solid var(--border)' }}
-            title="恢复默认模板"
+            title={t('prompt.restoreDefault')}
           >
             <RotateCcw size={12} />
-            默认
+            {t('common.default')}
           </button>
           <button
             onClick={fetchPrompt}
             disabled={loading}
             className="p-1.5 rounded-md"
             style={{ color: 'var(--text-muted)' }}
-            title="刷新"
+            title={t('common.refresh')}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -166,7 +169,7 @@ export default function PromptEditorPage() {
             }}
           >
             <Save size={12} />
-            {saving ? '保存中...' : '保存'}
+            {saving ? t('prompt.saving') : t('common.save')}
           </button>
         </div>
       </div>
@@ -179,8 +182,8 @@ export default function PromptEditorPage() {
           style={{ color: 'var(--text-muted)' }}
         >
           <Info size={11} />
-          可用变量（点击插入）
-          <span className="text-[10px]">{showVars ? '收起' : '展开'}</span>
+          {t('prompt.variables')}
+          <span className="text-[10px]">{showVars ? t('prompt.collapse') : t('prompt.expand')}</span>
         </button>
         {showVars && (
           <div className="flex flex-wrap gap-1">
@@ -240,7 +243,7 @@ export default function PromptEditorPage() {
       {dirty && (
         <div className="shrink-0 mt-2 text-[10px] px-2 py-1 rounded"
           style={{ background: 'rgba(251,191,36,0.1)', color: 'rgb(251,191,36)' }}>
-          未保存的修改 — 保存后下次启动生存引擎时生效
+          {t('prompt.unsavedChanges')}
         </div>
       )}
     </div>

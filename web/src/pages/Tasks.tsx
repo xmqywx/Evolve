@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw,
   Plus,
@@ -10,17 +11,6 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { Task } from '../utils/types';
-
-function statusConfig(status: string): { icon: React.ElementType; color: string; label: string } {
-  const map: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-    pending: { icon: Clock, color: 'var(--text-muted)', label: '等待中' },
-    running: { icon: Play, color: 'rgb(96,165,250)', label: '运行中' },
-    done: { icon: CheckCircle, color: 'rgb(74,222,128)', label: '已完成' },
-    failed: { icon: AlertTriangle, color: 'rgb(248,113,113)', label: '失败' },
-    cancelled: { icon: XCircle, color: 'var(--text-muted)', label: '已取消' },
-  };
-  return map[status] || map.pending;
-}
 
 function formatTime(iso: string | null): string {
   if (!iso) return '-';
@@ -37,10 +27,22 @@ function formatDuration(started: string | null, finished: string | null): string
 }
 
 export default function TasksPage() {
+  const { t } = useTranslation();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [prompt, setPrompt] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  function statusConfig(status: string): { icon: React.ElementType; color: string; label: string } {
+    const map: Record<string, { icon: React.ElementType; color: string; label: string }> = {
+      pending: { icon: Clock, color: 'var(--text-muted)', label: t('tasks.statusPending') },
+      running: { icon: Play, color: 'rgb(96,165,250)', label: t('tasks.statusRunning') },
+      done: { icon: CheckCircle, color: 'rgb(74,222,128)', label: t('tasks.statusDone') },
+      failed: { icon: AlertTriangle, color: 'rgb(248,113,113)', label: t('tasks.statusFailed') },
+      cancelled: { icon: XCircle, color: 'var(--text-muted)', label: t('tasks.statusCancelled') },
+    };
+    return map[status] || map.pending;
+  }
 
   const fetchTasks = useCallback(async () => {
     setLoading(true);
@@ -72,17 +74,17 @@ export default function TasksPage() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">任务</h1>
+        <h1 className="text-xl font-semibold">{t('tasks.title')}</h1>
         <div className="flex items-center gap-2">
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-            {tasks.length} 个任务
+            {t('tasks.count', { count: tasks.length })}
           </span>
           <button
             onClick={fetchTasks}
             disabled={loading}
             className="p-1.5 rounded-md transition-colors"
             style={{ color: 'var(--text-muted)' }}
-            title="刷新"
+            title={t('common.refresh')}
           >
             <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
           </button>
@@ -95,7 +97,7 @@ export default function TasksPage() {
           value={prompt}
           onChange={(e) => setPrompt(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && submitTask()}
-          placeholder="输入任务提示词..."
+          placeholder={t('tasks.inputPlaceholder')}
           className="flex-1 px-3 py-2 rounded-lg text-sm outline-none transition-colors"
           style={{
             background: 'var(--surface-alt)',
@@ -116,7 +118,7 @@ export default function TasksPage() {
           ) : (
             <Plus size={14} />
           )}
-          提交
+          {t('tasks.submit')}
         </button>
       </div>
 
@@ -127,17 +129,17 @@ export default function TasksPage() {
           className="grid grid-cols-[1fr_80px_60px_140px_80px] gap-2 px-4 py-2 text-xs font-medium"
           style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}
         >
-          <span>提示词</span>
-          <span>状态</span>
-          <span>来源</span>
-          <span>创建时间</span>
-          <span>耗时</span>
+          <span>{t('tasks.headerPrompt')}</span>
+          <span>{t('tasks.headerStatus')}</span>
+          <span>{t('tasks.headerSource')}</span>
+          <span>{t('tasks.headerCreatedAt')}</span>
+          <span>{t('tasks.headerDuration')}</span>
         </div>
 
         {/* Task rows */}
         {tasks.length === 0 ? (
           <div className="px-4 py-8 text-center text-sm" style={{ color: 'var(--text-muted)' }}>
-            暂无任务
+            {t('tasks.noTasks')}
           </div>
         ) : (
           tasks.map((task) => {
