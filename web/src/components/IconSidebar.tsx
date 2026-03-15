@@ -64,7 +64,7 @@ export default function IconSidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto overflow-x-visible">
+      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto">
         {navItems.map((item) => (
           <button
             key={item.path}
@@ -78,9 +78,9 @@ export default function IconSidebar() {
             title={item.label}
           >
             {item.icon}
-            {/* Tooltip */}
+            {/* Tooltip — fixed position to escape overflow clipping */}
             <span
-              className="absolute left-full ml-2 px-2 py-1 text-xs rounded-md
+              className="fixed left-[60px] px-2 py-1 text-xs rounded-md
                          bg-[var(--surface-alt)] border border-[var(--border)]
                          text-[var(--text)] whitespace-nowrap
                          opacity-0 group-hover:opacity-100 pointer-events-none
