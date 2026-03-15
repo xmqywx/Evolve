@@ -64,7 +64,7 @@ export default function IconSidebar() {
       </div>
 
       {/* Nav items */}
-      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto overflow-x-hidden">
+      <nav className="flex-1 flex flex-col items-center gap-1 py-2 overflow-y-auto overflow-x-visible">
         {navItems.map((item) => (
           <button
             key={item.path}
