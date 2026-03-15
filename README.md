@@ -2,119 +2,170 @@
   <img src="logo.svg" width="640" alt="Evolve"/>
 </p>
 
-<p align="center"><strong>AI Agent 控制平面 — 让 AI 自我管理、自我学习、自我进化。</strong></p>
+<p align="center">
+  <strong>The Control Plane for Autonomous AI Agents</strong><br/>
+  <em>Self-managing. Self-learning. Self-evolving.</em>
+</p>
 
-> 不是又一个 Agent 框架。Evolve 是一个**管控系统**——它不关心 Agent 怎么写代码，它关心的是：Agent 有没有在干活？干得对不对？学到了什么？下次能不能做得更好？
+<p align="center">
+  <a href="#features">Features</a> •
+  <a href="#architecture">Architecture</a> •
+  <a href="#quick-start">Quick Start</a> •
+  <a href="#api-reference">API</a> •
+  <a href="README_CN.md">中文文档</a>
+</p>
 
 ---
 
-## 为什么需要 Evolve？
+> Evolve is **not another agent framework**. It's a **control system** — it doesn't care how your agent writes code. It cares whether your agent is working, working correctly, learning from mistakes, and getting better over time.
 
-你让 Claude/GPT 7×24 自主运行后，会遇到三个问题：
+## Why Evolve?
 
-| 问题 | 传统方案 | Evolve 的方案 |
-|------|---------|---------------|
-| **不知道 Agent 在干嘛** | 看日志、翻终端 | Agent 主动汇报（Self-Report API） |
-| **Agent 反复犯同样的错** | 每次手动提醒 | 自动提炼教训，注入 prompt（知识中枢） |
-| **Agent 做了蠢事你不知道** | 事后才发现 | 第二个 AI 实时审查（监督 Agent） |
+When you run Claude/GPT autonomously 24/7, three problems emerge:
 
-## 核心创新
+| Problem | Traditional Fix | Evolve's Approach |
+|---------|----------------|-------------------|
+| **No idea what Agent is doing** | Tail logs, watch terminal | Agent proactively reports (Self-Report API) |
+| **Agent repeats the same mistakes** | Remind it manually every time | Auto-extract lessons → inject into prompt (Knowledge Hub) |
+| **Agent does something dumb** | Discover it after the fact | A second AI reviews in real-time (Supervisor Agent) |
 
-### 1. Agent Self-Report API — 让 Agent 主动汇报，而不是被动监控
+## Features
 
-传统方案是从外部监控 Agent（看日志、解析输出）。Evolve 反过来：**要求 Agent 主动调 API 汇报**。
+### 1. Agent Self-Report API
+
+Traditional monitoring watches agents from the outside. Evolve flips this: **the agent must report its own status**.
 
 ```bash
-# Agent 自己说："我在写代码，进度 40%"
+# Agent says: "I'm coding, 40% done"
 curl -X POST $MYAGENT_URL/api/agent/heartbeat \
-  -d '{"activity":"coding","description":"实现用户认证模块","progress_pct":40}'
+  -d '{"activity":"coding","description":"implementing auth module","progress_pct":40}'
 
-# Agent 自己说："我发现了一个重要信息"
+# Agent says: "I discovered something important"
 curl -X POST $MYAGENT_URL/api/agent/discovery \
-  -d '{"title":"小红书发布上限","content":"每天最多发3条，超过会被限流","priority":"high"}'
+  -d '{"title":"Rate limit found","content":"Max 3 posts/day on XHS","priority":"high"}'
 
-# Agent 自己说："我今天学到了这些"
+# Agent says: "Here's what I learned today"
 curl -X POST $MYAGENT_URL/api/agent/review \
-  -d '{"accomplished":["完成了API对接"],"learned":["签名要用MD5不是SHA256"]}'
+  -d '{"accomplished":["API integration"],"learned":["Use MD5 not SHA256 for signatures"]}'
 ```
 
-**6 大上报接口：** 心跳 | 产出 | 发现 | 工作流 | 升级提案 | 复盘
+**6 reporting endpoints:** Heartbeat | Deliverable | Discovery | Workflow | Upgrade Proposal | Review
 
-不汇报 = 工作等于没做。这个规则写在 prompt 里，Agent 必须遵守。
+No report = work doesn't exist. This rule is baked into the agent's prompt.
 
-### 2. 知识中枢 — Agent 越用越强，不再重复犯错
+### 2. Knowledge Hub — Agents That Get Smarter
 
-这是 Evolve 最核心的能力。大部分 Agent 框架的问题是：**每次对话都从零开始**。Evolve 解决了这个问题：
+Most agent frameworks start from zero every conversation. Evolve solves this with a **closed-loop learning system**:
 
 ```
-Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
+Agent makes a mistake (review.learned: "pkill -f crashes the system")
         │
-        ▼ 实时采集
-   豆包自动评估：这条经验值 10 分（不遵守就会出事）
+        ▼ Real-time ingestion
+   Doubao auto-evaluates: score 10/10 (critical lesson)
         │
-        ▼ 分层存储
-   ┌─────────────────────────────────────────┐
-   │  永久层（≥8 分）核心教训，永不过期        │
-   │  近期层（5-7 分）有用但有时效性，30天过期  │
-   │  任务层          匹配当前计划的相关知识    │
-   └─────────────────────────────────────────┘
+        ▼ Layered storage
+   ┌─────────────────────────────────────────────┐
+   │  Permanent (≥8)  Core lessons, never expire  │
+   │  Recent (5-7)    Useful but temporal, 30d TTL │
+   │  Task            Matched to current plans     │
+   └─────────────────────────────────────────────┘
         │
-        ▼ 下次启动时自动注入 prompt
-   Agent 再也不会用 pkill -f 了
+        ▼ Injected into prompt on next startup
+   Agent never uses pkill -f again
 ```
 
-**关键设计：**
-- **不是简单存储，是提炼**。豆包对每条经验评分（1-10），精炼成一句话，打标签归类
-- **三层注入，控制 token 消耗**。不会把所有知识都塞进 prompt，只注入最相关的
-- **自动过期**。低分知识 30 天后自动淘汰，知识库保持精简
+**Key design decisions:**
+- **Refinement, not storage.** A secondary LLM scores each lesson (1-10), distills it to one sentence, and tags it
+- **Three-layer injection.** Only the most relevant knowledge enters the prompt — not everything
+- **Auto-expiry.** Low-score knowledge expires after 30 days, keeping the knowledge base lean
 
-### 3. 监督 Agent — 用 AI 审查 AI
+### 3. Supervisor Agent — AI Reviewing AI
 
-一个 Agent 在做事，另一个 Agent 在监督它。
+One agent works. Another agent reviews its work.
 
-点击"监督分析"→ Evolve 读取生存引擎的完整对话记录（JSONL）→ 用 Python 提取关键操作（工具调用、决策、命令）→ 压缩到 6000 字 → 发给豆包分析：
+Click "Analyze" → Evolve reads the survival engine's full JSONL conversation log → Python extracts key actions (tool calls, decisions, commands) → compresses to ~6000 chars → sends to Doubao for analysis:
 
-- 每个决策是否合理？
-- 有没有重复操作、空转、走弯路？
-- 是否按照指令行事？
-- 效率评分 + 改进建议
+- Was each decision reasonable?
+- Any repeated operations, idle loops, or wasted effort?
+- Did it follow instructions?
+- Efficiency score + improvement suggestions
 
-**成本极低**：豆包做分析，不占用 Claude 的 token。
+**Extremely low cost:** Doubao handles analysis, not Claude.
 
-### 4. 生存引擎 — 7×24 不间断运行的 AI
+### 4. Survival Engine — 24/7 Persistent Agent
 
-不是跑一次就停的脚本，是一个**持续存活**的 Agent：
+Not a one-shot script. A **continuously alive** agent:
 
-- **Watchdog 守护**：10 秒一次健康检查，卡死自动唤醒
-- **心跳检测**：5 分钟无心跳 → 温和提醒，15 分钟无心跳 → 上下文感知的 nudge
-- **崩溃恢复**：`--resume` 重启，从知识库注入历史经验，无缝继续
-- **Web 终端**：浏览器直接操作 tmux 会话，远程管理
+- **Watchdog:** Health check every 10s, auto-revival on hang
+- **Heartbeat detection:** 5min no heartbeat → gentle nudge, 15min → context-aware intervention
+- **Crash recovery:** `--resume` restart with knowledge injection, seamless continuation
+- **Web terminal:** Operate the tmux session directly from your browser
 
-### 5. 能力开关 — 运行时控制 Agent 的权限
+### 5. Skills-First Workflow
 
-不用重启、不用改代码，在 Dashboard 上一键开关：
+The agent is **required** to use structured skills before writing code:
 
-| 能力 | 状态 | 含义 |
-|------|------|------|
-| 浏览器访问 | 允许 | Agent 可以用 Chrome 搜索、访问网站 |
-| Git 推送 | 允许 | Agent 可以 push 代码到 GitHub |
-| 花钱 | 禁止 | Agent 不能购买任何付费服务 |
-| 安装包 | 禁止 | Agent 不能 pip install / npm install |
+```
+New project? → /brainstorming → /writing-plans → /executing-plans
+Bug found?   → /systematic-debugging
+Done?        → /verification-before-completion
+```
 
-配置写入 prompt，Agent 必须遵守。Dashboard 实时生效。
+Before starting any task, the agent must:
+1. Run `/skills` to check available capabilities
+2. Search for better tools, MCP servers, or skills that could help
+3. Install and register new tools via the Discovery API
+
+**No cowboy coding.** Design first, then execute.
+
+### 6. Extensions Management
+
+Full visibility into what your agent has installed:
+
+- **Skills scanner** — discovers skills from global (`~/.claude/skills/`), plugins, and workspace projects
+- **MCP servers** — shows all connected Model Context Protocol servers
+- **Plugins** — lists installed Claude Code plugins with enable/disable status
+- **Tagging system** — auto-inferred tags (AI, Web, Tools, Data, etc.) with manual override
+- **Source tracking** — marks which extensions were installed by the survival engine vs. manually
+
+### 7. Capability Controls
+
+Toggle agent permissions at runtime from the Dashboard — no restart needed:
+
+| Capability | Status | Meaning |
+|-----------|--------|---------|
+| Browser access | Allowed | Agent can use Chrome for research |
+| Git push | Allowed | Agent can push code to GitHub |
+| Spend money | Blocked | Agent cannot purchase paid services |
+| Install packages | Blocked | Agent cannot pip install / npm install |
+
+### 8. Scheduled Tasks
+
+The agent creates scheduled tasks via API. Evolve executes them automatically:
+
+```bash
+curl -X POST $MYAGENT_URL/api/scheduled-tasks \
+  -d '{"name":"Daily publish","cron_expr":"0 9 * * *","command":"/path/to/script.sh"}'
+```
+
+croniter-based scheduler with stdout/stderr capture, timeout handling, and run history.
+
+### 9. Internationalization
+
+Full i18n support with **Chinese** and **English** — 450+ translation keys. Switch languages from the sidebar.
 
 ---
 
-## 系统架构
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
 │                        Web Dashboard                         │
-│  控制台 | 生存引擎 | 知识库 | 监督简报 | 工作流 | 定时任务 | 能力  │
+│  Dashboard│Survival│Knowledge│Supervisor│Workflows│Extensions │
 └────────────────────────────┬─────────────────────────────────┘
                              │ REST API
 ┌────────────────────────────┴─────────────────────────────────┐
-│                     Evolve Server (FastAPI)                  │
+│                     Evolve Server (FastAPI)                   │
 │                                                              │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────┐ │
 │  │ Self-Report  │  │  Knowledge   │  │   Supervisor Agent  │ │
@@ -122,7 +173,7 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 │  └──────┬──────┘  └──────┬───────┘  └──────────┬──────────┘ │
 │         │                │                      │            │
 │  ┌──────┴────────────────┴──────────────────────┴──────────┐ │
-│  │                    SQLite (knowledge_base + ...)         │ │
+│  │              SQLite (knowledge + extensions + ...)       │ │
 │  └─────────────────────────────────────────────────────────┘ │
 │                                                              │
 │  ┌──────────────────────┐  ┌──────────────────────────────┐ │
@@ -132,114 +183,163 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 └─────────────┼────────────────────────────────────────────────┘
               │ tmux
      ┌────────┴────────┐
-     │  Claude Agent   │  ← 持续运行，主动汇报，自主决策
+     │  Claude Agent   │  ← Runs continuously, self-reports, self-decides
      └─────────────────┘
 ```
 
-## 数据流：从经验到知识的闭环
+## Data Flow: The Learning Loop
 
 ```
-Claude 做事 ──→ 调 Self-Report API 汇报
+Agent works ──→ Calls Self-Report API
                         │
             ┌───────────┼───────────┐
             ▼           ▼           ▼
         heartbeat   deliverable  review.learned
-         (心跳)      (产出)      (经验教训)
                                     │
-                              ▼ 豆包提炼
+                              ▼ Doubao refines
                          knowledge_base
                               │
-                    ▼ 下次启动注入 prompt
-                      Claude 变强了
+                    ▼ Injected on next startup
+                      Agent got smarter
 ```
 
-## 技术栈
+## Tech Stack
 
-| 层 | 技术 |
-|---|---|
-| 后端 | Python 3.12+ / FastAPI / SQLite / aiosqlite |
-| 前端 | React + TypeScript + Vite + Tailwind CSS |
-| 终端 | xterm.js + tmux |
-| AI 执行 | Claude Code (生存引擎) |
-| AI 分析 | Doubao (知识提炼 / 监督分析) |
-| 通知 | 飞书 Bot (可选) |
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.12+ / FastAPI / SQLite / aiosqlite |
+| Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
+| Terminal | xterm.js + tmux |
+| Agent Runtime | Claude Code (Survival Engine) |
+| Analysis LLM | Doubao (knowledge refinement / supervisor analysis) |
+| Notifications | Feishu Bot (optional) |
+| i18n | react-i18next (zh-CN / en) |
 
-## API
+## API Reference
 
-| 端点 | 方法 | 用途 |
-|------|------|------|
-| `/api/agent/heartbeat` | POST | Agent 心跳上报 |
-| `/api/agent/deliverable` | POST | 产出物上报 |
-| `/api/agent/discovery` | POST | 发现上报 → 自动入知识库 |
-| `/api/agent/review` | POST | 复盘上报 → learned 自动入知识库 |
-| `/api/agent/workflow` | POST | 创建可复用工作流 |
-| `/api/agent/upgrade` | POST | 提交能力升级提案 |
-| `/api/scheduled-tasks` | POST | 创建定时任务 |
-| `/api/knowledge` | GET/POST | 知识库 CRUD |
-| `/api/supervisor/analyze` | POST | 触发监督分析 |
+### Self-Report API (Agent → Evolve)
 
-## 快速开始
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/agent/heartbeat` | POST | Activity heartbeat |
+| `/api/agent/deliverable` | POST | Report deliverable |
+| `/api/agent/discovery` | POST | Report discovery → auto-enters knowledge base |
+| `/api/agent/review` | POST | Work review → `learned` auto-enters knowledge base |
+| `/api/agent/workflow` | POST | Create reusable workflow |
+| `/api/agent/upgrade` | POST | Submit capability upgrade proposal |
+
+### Management API (Dashboard → Evolve)
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/knowledge` | GET/POST | Knowledge base CRUD |
+| `/api/knowledge/{id}/promote` | POST | Promote to permanent layer |
+| `/api/extensions` | GET | List skills, MCPs, plugins |
+| `/api/extensions/sync` | POST | Scan filesystem and sync to DB |
+| `/api/projects/scan` | GET | Scan workspace projects |
+| `/api/supervisor/analyze` | POST | Trigger supervisor analysis |
+| `/api/scheduled-tasks` | GET/POST | Scheduled task management |
+| `/api/agent/prompt` | GET/PUT | Edit survival engine prompt |
+
+## Quick Start
 
 ```bash
 git clone https://github.com/xmqywx/Evolve.git
 cd Evolve
 
-# 后端
+# Backend
 python -m venv .venv
 .venv/bin/pip install -r requirements.txt
 
-# 前端
+# Frontend
 cd web && npm install && npm run build && cd ..
 
-# 配置
+# Configure
 cp config.yaml.example config.yaml
-# 编辑 config.yaml，填入你的 Claude API / Doubao API 密钥
+# Edit config.yaml with your API keys
 
-# 启动
+# Run
 .venv/bin/python run.py
-# 访问 http://localhost:3818
+# Visit http://localhost:3818
 ```
 
-## 项目结构
+## Project Structure
 
 ```
 myagent/
-├── server.py          FastAPI 主服务 + 全部 API
-├── survival.py        生存引擎（tmux 守护 + prompt 动态注入）
-├── knowledge.py       知识中枢（采集 → 豆包提炼 → 分层存储 → prompt 注入）
-├── supervisor.py      监督 Agent（JSONL 提取 + 豆包分析）
-├── cron_scheduler.py  定时任务调度器（croniter + asyncio）
-├── db.py              SQLite 数据层（17 张表）
-├── doubao.py          豆包 API 客户端
-├── scanner.py         Claude 会话扫描 + JSONL 解析
-├── feishu.py          飞书通知
-└── config.py          Pydantic 配置模型
+├── server.py          FastAPI server + all API endpoints
+├── survival.py        Survival engine (tmux watchdog + dynamic prompt injection)
+├── knowledge.py       Knowledge hub (ingest → refine → store → inject)
+├── supervisor.py      Supervisor agent (JSONL extraction + Doubao analysis)
+├── extensions.py      Extensions scanner (skills, MCPs, plugins)
+├── cron_scheduler.py  Scheduled task scheduler (croniter + asyncio)
+├── db.py              SQLite data layer (20+ tables)
+├── doubao.py          Doubao API client
+├── scanner.py         Claude session scanner + JSONL parser
+├── feishu.py          Feishu notifications
+└── config.py          Pydantic config models
 
-web/src/pages/
-├── Dashboard.tsx      控制台（心跳、产出、发现汇总）
-├── Survival.tsx       生存引擎终端（Web 终端 + 守护开关）
-├── Knowledge.tsx      知识库管理（筛选、添加、升级、删除）
-├── Supervisor.tsx     监督简报（JSONL 分析报告）
-├── Sessions.tsx       多会话管理
-├── ScheduledTasks.tsx 定时任务管理
-├── Workflows.tsx      工作流/技能库
-├── Capabilities.tsx   能力开关面板
-├── Output.tsx         产出物管理
-├── PromptEditor.tsx   Prompt 实时编辑器
-└── ...
+web/src/
+├── i18n/              Internationalization (zh-CN, en)
+├── pages/
+│   ├── Dashboard.tsx      Control panel (heartbeats, deliverables, discoveries)
+│   ├── Survival.tsx       Survival engine terminal (web terminal + watchdog toggle)
+│   ├── Knowledge.tsx      Knowledge base (filter, add, promote, delete)
+│   ├── Supervisor.tsx     Supervisor reports (JSONL analysis)
+│   ├── Extensions.tsx     Extensions manager (skills, MCPs, plugins with tags)
+│   ├── Output.tsx         Deliverables + project overview
+│   ├── Sessions.tsx       Multi-session management
+│   ├── ScheduledTasks.tsx Scheduled task management
+│   ├── Workflows.tsx      Workflow / skill library
+│   ├── Capabilities.tsx   Capability toggle panel
+│   ├── PromptEditor.tsx   Live prompt editor
+│   └── ...
+└── components/
+    ├── IconSidebar.tsx    Expandable icon sidebar
+    └── Layout.tsx         App layout
 ```
 
-## 与其他项目的区别
+## The Harness Engineering Paradigm
+
+Evolve is built on a concept we call **Harness Engineering** — the discipline of building infrastructure that wraps, constrains, and amplifies AI models. Instead of improving the model itself, you improve the system around it.
+
+```
+Traditional: Better Model → Better Results
+Harness Eng: Same Model + Better Harness → Dramatically Better Results
+```
+
+Evolve implements five types of harness:
+
+| Harness | What it does | Evolve component |
+|---------|-------------|-----------------|
+| **Prompt Harness** | Dynamically assembles the optimal prompt with context, knowledge, and constraints | Identity Prompt + Knowledge Injection |
+| **Output Harness** | Captures, validates, and routes agent outputs to the right systems | Self-Report API + Knowledge Hub |
+| **Constraint Harness** | Enforces boundaries and permissions at runtime | Capability Controls + Forbidden Operations |
+| **Runtime Harness** | Keeps the agent alive, detects failures, recovers state | Survival Engine + Watchdog + Crash Recovery |
+| **Observation Harness** | Monitors agent behavior and generates insights | Supervisor Agent + JSONL Analysis |
+
+**Why this matters:** The model (Claude, GPT, etc.) is a commodity. The harness is your competitive advantage. Two teams using the same model will get wildly different results based on their harness quality.
+
+**Future directions:**
+- **Knowledge Distillation** — aggregate noisy discoveries into weekly intelligence briefings, not raw lists
+- **Intent Marketplace** — decompose high-level goals into tradeable sub-intents that multiple agents can bid on
+
+---
+
+## Comparison
 
 | | Evolve | Hermes Agent | AutoGPT | CrewAI |
 |---|---|---|---|---|
-| 定位 | Agent 控制平面 | Agent 框架 | 自主 Agent | 多 Agent 编排 |
-| Agent 自我汇报 | 6 大 API | 无 | 无 | 无 |
-| 知识积累闭环 | 自动提炼+注入 | Skill 手动管理 | 无 | 无 |
-| AI 审查 AI | 监督 Agent | 无 | 无 | 无 |
-| 运行时能力控制 | Dashboard 开关 | 无 | 无 | 无 |
-| 7×24 守护 | Watchdog + 心跳 | 无 | 无 | 无 |
-| Web 管理界面 | 全功能 Dashboard | CLI only | Web UI | 无 |
+| Purpose | Agent control plane | Agent framework | Autonomous agent | Multi-agent orchestration |
+| Self-reporting | 6 APIs | None | None | None |
+| Knowledge loop | Auto-refine + inject | Manual skill files | None | None |
+| AI reviews AI | Supervisor agent | None | None | None |
+| Skills-first workflow | Enforced | None | None | None |
+| Runtime capability control | Dashboard toggles | None | None | None |
+| 24/7 watchdog | Heartbeat + nudge | None | None | None |
+| Extension management | Scan + tag + track | None | None | None |
+| Web dashboard | Full-featured | CLI only | Web UI | None |
+| i18n | zh-CN + en | None | en only | en only |
 
 ## License
 
