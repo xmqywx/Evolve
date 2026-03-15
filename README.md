@@ -2,15 +2,15 @@
 
 **AI Agent 控制平面 — 让 AI 自我管理、自我学习、自我进化。**
 
-> 不是又一个 Agent 框架。MyAgent 是一个**管控系统**——它不关心 Agent 怎么写代码，它关心的是：Agent 有没有在干活？干得对不对？学到了什么？下次能不能做得更好？
+> 不是又一个 Agent 框架。Evolve 是一个**管控系统**——它不关心 Agent 怎么写代码，它关心的是：Agent 有没有在干活？干得对不对？学到了什么？下次能不能做得更好？
 
 ---
 
-## 为什么需要 MyAgent？
+## 为什么需要 Evolve？
 
 你让 Claude/GPT 7×24 自主运行后，会遇到三个问题：
 
-| 问题 | 传统方案 | MyAgent 的方案 |
+| 问题 | 传统方案 | Evolve 的方案 |
 |------|---------|---------------|
 | **不知道 Agent 在干嘛** | 看日志、翻终端 | Agent 主动汇报（Self-Report API） |
 | **Agent 反复犯同样的错** | 每次手动提醒 | 自动提炼教训，注入 prompt（知识中枢） |
@@ -20,7 +20,7 @@
 
 ### 1. Agent Self-Report API — 让 Agent 主动汇报，而不是被动监控
 
-传统方案是从外部监控 Agent（看日志、解析输出）。MyAgent 反过来：**要求 Agent 主动调 API 汇报**。
+传统方案是从外部监控 Agent（看日志、解析输出）。Evolve 反过来：**要求 Agent 主动调 API 汇报**。
 
 ```bash
 # Agent 自己说："我在写代码，进度 40%"
@@ -42,7 +42,7 @@ curl -X POST $MYAGENT_URL/api/agent/review \
 
 ### 2. 知识中枢 — Agent 越用越强，不再重复犯错
 
-这是 MyAgent 最核心的能力。大部分 Agent 框架的问题是：**每次对话都从零开始**。MyAgent 解决了这个问题：
+这是 Evolve 最核心的能力。大部分 Agent 框架的问题是：**每次对话都从零开始**。Evolve 解决了这个问题：
 
 ```
 Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
@@ -70,7 +70,7 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 
 一个 Agent 在做事，另一个 Agent 在监督它。
 
-点击"监督分析"→ MyAgent 读取生存引擎的完整对话记录（JSONL）→ 用 Python 提取关键操作（工具调用、决策、命令）→ 压缩到 6000 字 → 发给豆包分析：
+点击"监督分析"→ Evolve 读取生存引擎的完整对话记录（JSONL）→ 用 Python 提取关键操作（工具调用、决策、命令）→ 压缩到 6000 字 → 发给豆包分析：
 
 - 每个决策是否合理？
 - 有没有重复操作、空转、走弯路？
@@ -112,7 +112,7 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 └────────────────────────────┬─────────────────────────────────┘
                              │ REST API
 ┌────────────────────────────┴─────────────────────────────────┐
-│                     MyAgent Server (FastAPI)                  │
+│                     Evolve Server (FastAPI)                  │
 │                                                              │
 │  ┌─────────────┐  ┌──────────────┐  ┌─────────────────────┐ │
 │  │ Self-Report  │  │  Knowledge   │  │   Supervisor Agent  │ │
@@ -179,8 +179,8 @@ Claude 做事 ──→ 调 Self-Report API 汇报
 ## 快速开始
 
 ```bash
-git clone https://github.com/xmqywx/MyAgent.git
-cd MyAgent
+git clone https://github.com/xmqywx/Evolve.git
+cd Evolve
 
 # 后端
 python -m venv .venv
@@ -229,7 +229,7 @@ web/src/pages/
 
 ## 与其他项目的区别
 
-| | MyAgent | Hermes Agent | AutoGPT | CrewAI |
+| | Evolve | Hermes Agent | AutoGPT | CrewAI |
 |---|---|---|---|---|
 | 定位 | Agent 控制平面 | Agent 框架 | 自主 Agent | 多 Agent 编排 |
 | Agent 自我汇报 | 6 大 API | 无 | 无 | 无 |
