@@ -557,8 +557,10 @@ class SurvivalEngine:
 - 不花真钱
 
 ### Git 规则
-- 每次改动 commit + push 到 GitHub（xmqywx）
-- 没 push = 不存在
+- 每个子项目在 `projects/` 下各自 `git init`，各自推 GitHub（xmqywx）
+- 工作目录根目录不建 git（plans/、scripts/ 等不用 git 管理）
+- 每次有意义的改动 commit + push，没 push = 不存在
+- 创建新项目: `cd projects/xxx && git init && gh repo create xmqywx/xxx --public --source=. --push`
 
 ## 开始
 调 heartbeat 汇报初始状态，然后检查 {ws}/plans/ 决定要做什么。'''
