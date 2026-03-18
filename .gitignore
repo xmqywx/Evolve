@@ -6,3 +6,7 @@ backups/
 .env
 node_modules/
 myagent.log
+.pid
+config.yaml
+persona/about_ying.md
+persona/private.md
