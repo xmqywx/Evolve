@@ -620,6 +620,7 @@ class SurvivalEngine:
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size largest")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} aggressive-resize on")
         await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} mouse on")
+        await self._run_cmd(f"tmux set -g allow-passthrough on")
 
         await self._run_cmd(
             f'tmux send-keys -t {TMUX_SESSION_NAME} "unset CLAUDECODE" Enter'
