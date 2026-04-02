@@ -606,7 +606,13 @@ class SurvivalEngine:
             return {"status": "error", "error": "tmux not installed (brew install tmux)"}
 
         if await self._tmux_session_exists():
-            return {"status": "already_running"}
+            current_cmd = await self._tmux_get_current_command()
+            idle_shells = {"zsh", "bash", "sh", "fish"}
+            if current_cmd and current_cmd.lower() not in idle_shells:
+                return {"status": "already_running"}
+            # tmux session exists but Claude is not running — recycle it
+            await self._log("start", f"tmux 会话存在但 Claude 未运行 (当前: {current_cmd})，回收重建")
+            await self._run_cmd(f"tmux kill-session -t {TMUX_SESSION_NAME}")
 
         self._claude_session_id = self._load_claude_session_id()
 
@@ -757,10 +763,21 @@ class SurvivalEngine:
                 break
 
             try:
-                # Check tmux alive
+                # Check tmux alive AND Claude running
+                needs_restart = False
                 if not await self._tmux_session_exists():
                     logger.warning("Survival tmux session died, restarting...")
                     await self._log("watchdog", "检测到 tmux 会话死亡，正在重启...")
+                    needs_restart = True
+                else:
+                    current_cmd = await self._tmux_get_current_command()
+                    idle_shells = {"zsh", "bash", "sh", "fish"}
+                    if current_cmd and current_cmd.lower() in idle_shells:
+                        logger.warning("Claude not running in survival session (got: %s), restarting...", current_cmd)
+                        await self._log("watchdog", f"Claude 未运行 (当前: {current_cmd})，正在重启...")
+                        needs_restart = True
+
+                if needs_restart:
                     await asyncio.sleep(2)
                     result = await self.start()
                     if result["status"] == "started":
