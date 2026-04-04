@@ -1409,32 +1409,30 @@ async def create_app(config_path: str) -> FastAPI:
             out, err = await p.communicate()
             return p.returncode, (out or err).decode().strip()
 
-        # Check for existing 生存引擎 workspace
+        # Close all existing 生存引擎 workspaces to avoid stale tmux clients
         rc, ws_list = await _cmux("list-workspaces")
-        existing_ws = None
         if rc == 0:
             for line in ws_list.splitlines():
                 if "生存引擎" in line:
-                    parts = line.strip().split()
-                    for part in parts:
+                    for part in line.strip().split():
                         if part.startswith("workspace:"):
-                            existing_ws = part
+                            await _cmux("close-workspace", "--workspace", part)
                             break
-                    if existing_ws:
-                        break
 
-        if existing_ws:
-            # Select existing workspace and respawn with fresh attach
-            await _cmux("select-workspace", "--workspace", existing_ws)
-            await _cmux("respawn-pane", "--workspace", existing_ws,
-                        "--command", "tmux detach-client -s survival; tmux attach-session -t survival")
-        else:
-            rc, output = await _cmux(
-                "new-workspace", "--name", "生存引擎",
-                "--command", "tmux detach-client -s survival; tmux attach-session -t survival",
-            )
-            if rc != 0:
-                return {"status": "error", "error": output}
+        # Detach all existing tmux clients from survival before opening cmux
+        async def _sh(cmd: str) -> None:
+            await (await asyncio.create_subprocess_shell(cmd)).communicate()
+
+        await _sh("tmux list-clients -t survival -F '#{client_name}' "
+                   "| xargs -I{} tmux detach-client -t {} 2>/dev/null")
+        await asyncio.sleep(0.5)
+
+        rc, output = await _cmux(
+            "new-workspace", "--name", "生存引擎",
+            "--command", "tmux attach-session -t survival",
+        )
+        if rc != 0:
+            return {"status": "error", "error": output}
 
         # Bring cmux to front
         await asyncio.create_subprocess_exec(
