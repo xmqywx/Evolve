@@ -54,6 +54,7 @@ export default function OutputPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [showProjects, setShowProjects] = useState(true);
+  const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchDeliverables = useCallback(async () => {
     setLoading(true);
@@ -196,16 +197,21 @@ export default function OutputPage() {
             const tc = TYPE_CONFIG[d.type] || TYPE_CONFIG.code;
             const sc = STATUS_CONFIG[d.status] || STATUS_CONFIG.draft;
             const Icon = tc.icon;
+            const isExpanded = expandedId === d.id;
             return (
               <div
                 key={d.id}
-                className="rounded-lg p-4 space-y-2"
-                style={{ background: 'var(--surface-alt)', border: '1px solid var(--border)' }}
+                className="rounded-lg p-4 space-y-2 cursor-pointer transition-colors"
+                style={{
+                  background: isExpanded ? 'var(--surface)' : 'var(--surface-alt)',
+                  border: `1px solid ${isExpanded ? 'var(--accent)' : 'var(--border)'}`,
+                }}
+                onClick={() => setExpandedId(isExpanded ? null : d.id)}
               >
                 <div className="flex items-start gap-2">
                   <Icon size={16} style={{ color: tc.color, marginTop: 2 }} />
                   <div className="flex-1 min-w-0">
-                    <div className="font-medium text-sm truncate" style={{ color: 'var(--text)' }}>
+                    <div className={`font-medium text-sm ${isExpanded ? '' : 'truncate'}`} style={{ color: 'var(--text)' }}>
                       {d.title}
                     </div>
                     <div className="flex items-center gap-2 mt-1">
@@ -216,7 +222,7 @@ export default function OutputPage() {
                         {tc.label}
                       </span>
                       {/* Status dropdown */}
-                      <div className="relative group">
+                      <div className="relative group" onClick={(e) => e.stopPropagation()}>
                         <button
                           className="text-[10px] px-1.5 py-0.5 rounded flex items-center gap-0.5"
                           style={{ background: `${sc.color}20`, color: sc.color }}
@@ -247,7 +253,7 @@ export default function OutputPage() {
                   </div>
                 </div>
                 {d.summary && (
-                  <p className="text-xs leading-relaxed" style={{ color: 'var(--text-secondary)' }}>
+                  <p className={`text-xs leading-relaxed ${isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'}`} style={{ color: 'var(--text-secondary)' }}>
                     {d.summary}
                   </p>
                 )}
@@ -270,6 +276,7 @@ export default function OutputPage() {
                       rel="noopener noreferrer"
                       className="flex items-center gap-1"
                       style={{ color: 'var(--accent)' }}
+                      onClick={(e) => e.stopPropagation()}
                     >
                       <ExternalLink size={10} />
                       {d.repo}
