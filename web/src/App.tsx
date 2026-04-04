@@ -29,8 +29,6 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
       <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route index element={<DashboardPage />} />
-        <Route path="sessions" element={<SessionsPage />} />
-        <Route path="sessions/:id" element={<SessionsPage />} />
         <Route path="survival" element={<SurvivalPage />} />
         <Route path="output" element={<OutputPage />} />
         <Route path="workflows" element={<WorkflowsPage />} />

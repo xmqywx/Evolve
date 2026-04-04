@@ -33,7 +33,6 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/', icon: <LayoutDashboard size={20} />, labelKey: 'sidebar.dashboard' },
-  { path: '/sessions', icon: <Monitor size={20} />, labelKey: 'sidebar.sessions' },
   { path: '/survival', icon: <Flame size={20} />, labelKey: 'sidebar.survival' },
   { path: '/output', icon: <Package size={20} />, labelKey: 'sidebar.output' },
   { path: '/workflows', icon: <Zap size={20} />, labelKey: 'sidebar.workflows' },
