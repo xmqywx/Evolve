@@ -1423,13 +1423,15 @@ async def create_app(config_path: str) -> FastAPI:
         async def _sh(cmd: str) -> None:
             await (await asyncio.create_subprocess_shell(cmd)).communicate()
 
+        # Detach all tmux clients and set window to use largest client size
         await _sh("tmux list-clients -t survival -F '#{client_name}' "
                    "| xargs -I{} tmux detach-client -t {} 2>/dev/null")
-        await asyncio.sleep(0.5)
+        await asyncio.sleep(0.3)
 
         rc, output = await _cmux(
             "new-workspace", "--name", "生存引擎",
-            "--command", "tmux attach-session -t survival",
+            "--command", "tmux set-option -t survival window-size largest 2>/dev/null; "
+                         "exec tmux attach-session -t survival",
         )
         if rc != 0:
             return {"status": "error", "error": output}

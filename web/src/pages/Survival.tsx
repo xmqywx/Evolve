@@ -27,7 +27,7 @@ export default function SurvivalPage() {
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
-  const [cmuxActive, setCmuxActive] = useState(false);
+  const [cmuxActive, setCmuxActive] = useState(() => localStorage.getItem('survivalCmuxActive') === '1');
   const termRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -176,10 +176,12 @@ export default function SurvivalPage() {
   const handleOpenCmux = async () => {
     disconnectWs();
     setCmuxActive(true);
+    localStorage.setItem('survivalCmuxActive', '1');
     try { await apiFetch('/api/survival/open-cmux', { method: 'POST' }); } catch {}
   };
   const handleBackToWeb = () => {
     setCmuxActive(false);
+    localStorage.removeItem('survivalCmuxActive');
     connectWs();
   };
 
