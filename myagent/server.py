@@ -1402,7 +1402,7 @@ async def create_app(config_path: str) -> FastAPI:
         proc = await asyncio.create_subprocess_exec(
             cmux_bin, "new-workspace",
             "--name", "生存引擎",
-            "--command", "tmux attach-session -t survival",
+            "--command", "tmux attach-session -d -t survival",
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
