@@ -1428,13 +1428,21 @@ async def create_app(config_path: str) -> FastAPI:
                    "| xargs -I{} tmux detach-client -t {} 2>/dev/null")
         await asyncio.sleep(0.3)
 
+        # Set window-size to manual so we can force resize after attach
+        await _sh("tmux set-option -t survival window-size manual 2>/dev/null")
+        await _sh("tmux set-hook -t survival client-attached "
+                   "'resize-window -t survival -A' 2>/dev/null")
+
         rc, output = await _cmux(
             "new-workspace", "--name", "生存引擎",
-            "--command", "tmux set-option -t survival window-size largest 2>/dev/null; "
-                         "exec tmux attach-session -t survival",
+            "--command", "exec tmux attach-session -t survival",
         )
         if rc != 0:
             return {"status": "error", "error": output}
+
+        # Give tmux a moment to attach, then force resize
+        await asyncio.sleep(0.5)
+        await _sh("tmux resize-window -t survival -A 2>/dev/null")
 
         # Bring cmux to front
         await asyncio.create_subprocess_exec(
