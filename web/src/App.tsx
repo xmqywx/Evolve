@@ -6,7 +6,6 @@ import DashboardPage from './pages/Dashboard';
 import SessionsPage from './pages/Sessions';
 import TasksPage from './pages/Tasks';
 import MemoryPage from './pages/Memory';
-import ChatPage from './pages/Chat';
 import SurvivalPage from './pages/Survival';
 import OutputPage from './pages/Output';
 import WorkflowsPage from './pages/Workflows';
@@ -32,7 +31,6 @@ export default function App() {
         <Route index element={<DashboardPage />} />
         <Route path="sessions" element={<SessionsPage />} />
         <Route path="sessions/:id" element={<SessionsPage />} />
-        <Route path="chat" element={<ChatPage />} />
         <Route path="survival" element={<SurvivalPage />} />
         <Route path="output" element={<OutputPage />} />
         <Route path="workflows" element={<WorkflowsPage />} />
