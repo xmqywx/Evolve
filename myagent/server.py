@@ -1399,17 +1399,48 @@ async def create_app(config_path: str) -> FastAPI:
         cmux_bin = "/Applications/cmux.app/Contents/Resources/bin/cmux"
         if not os.path.exists(cmux_bin):
             raise HTTPException(status_code=404, detail="cmux not installed")
-        proc = await asyncio.create_subprocess_exec(
-            cmux_bin, "new-workspace",
-            "--name", "生存引擎",
-            "--command", "tmux attach-session -d -t survival",
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE,
+
+        async def _cmux(*args: str) -> tuple[int, str]:
+            p = await asyncio.create_subprocess_exec(
+                cmux_bin, *args,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+            )
+            out, err = await p.communicate()
+            return p.returncode, (out or err).decode().strip()
+
+        # Check for existing 生存引擎 workspace
+        rc, ws_list = await _cmux("list-workspaces")
+        existing_ws = None
+        if rc == 0:
+            for line in ws_list.splitlines():
+                if "生存引擎" in line:
+                    parts = line.strip().split()
+                    for part in parts:
+                        if part.startswith("workspace:"):
+                            existing_ws = part
+                            break
+                    if existing_ws:
+                        break
+
+        if existing_ws:
+            # Select existing workspace and respawn with fresh attach
+            await _cmux("select-workspace", "--workspace", existing_ws)
+            await _cmux("respawn-pane", "--workspace", existing_ws,
+                        "--command", "tmux detach-client -s survival; tmux attach-session -t survival")
+        else:
+            rc, output = await _cmux(
+                "new-workspace", "--name", "生存引擎",
+                "--command", "tmux detach-client -s survival; tmux attach-session -t survival",
+            )
+            if rc != 0:
+                return {"status": "error", "error": output}
+
+        # Bring cmux to front
+        await asyncio.create_subprocess_exec(
+            "osascript", "-e", 'tell application "cmux" to activate',
         )
-        stdout, stderr = await proc.communicate()
-        if proc.returncode == 0:
-            return {"status": "opened", "output": stdout.decode().strip()}
-        return {"status": "error", "error": stderr.decode().strip()}
+        return {"status": "opened"}
 
     @app.post("/api/survival/discover-session", dependencies=[Depends(verify_auth)])
     async def discover_survival_session():
