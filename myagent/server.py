@@ -1072,17 +1072,25 @@ async def create_app(config_path: str) -> FastAPI:
         cron_expr = body.get("cron_expr", "").strip()
         if not name or not cron_expr:
             raise HTTPException(status_code=400, detail="name and cron_expr are required")
-        if not body.get("command", "").strip():
+        command = body.get("command", "").strip()
+        if not command:
             raise HTTPException(status_code=400, detail="command is required (full script path)")
         # Validate cron expression
         next_run = CronScheduler.compute_next_run(cron_expr)
         if next_run is None:
             raise HTTPException(status_code=400, detail="Invalid cron expression")
+        # Duplicate detection: reject if same name or same (cron_expr + command) exists
+        existing = await db.list_scheduled_tasks()
+        for t in existing:
+            if t["name"] == name:
+                raise HTTPException(status_code=409, detail=f"Task with name '{name}' already exists (id={t['id']})")
+            if t["cron_expr"] == cron_expr and t.get("command") == command:
+                raise HTTPException(status_code=409, detail=f"Task with same schedule and command already exists (id={t['id']}, name='{t['name']}')")
         task_id = await db.create_scheduled_task(
             name=name,
             cron_expr=cron_expr,
             description=body.get("description"),
-            command=body["command"].strip(),
+            command=command,
             workflow_id=body.get("workflow_id"),
             enabled=body.get("enabled", True),
             next_run_at=next_run,
