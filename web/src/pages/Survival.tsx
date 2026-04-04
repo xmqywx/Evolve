@@ -135,7 +135,7 @@ export default function SurvivalPage() {
   }, []);
 
   useEffect(() => { fetchStatus(); const i = setInterval(fetchStatus, 5000); return () => clearInterval(i); }, [fetchStatus]);
-  useEffect(() => { if (status?.running && !connected) connectWs(); return () => { disconnectWs(); }; }, [status?.running]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (status?.running && !connected && !cmuxActive) connectWs(); return () => { disconnectWs(); }; }, [status?.running, cmuxActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStart = async () => {
     setLoading(true);
@@ -172,8 +172,15 @@ export default function SurvivalPage() {
     } finally { setAnalyzing(false); }
   };
 
+  const [cmuxActive, setCmuxActive] = useState(false);
   const handleOpenCmux = async () => {
+    disconnectWs();
+    setCmuxActive(true);
     try { await apiFetch('/api/survival/open-cmux', { method: 'POST' }); } catch {}
+  };
+  const handleBackToWeb = () => {
+    setCmuxActive(false);
+    connectWs();
   };
 
   const isRunning = status?.running ?? false;
@@ -215,10 +222,17 @@ export default function SurvivalPage() {
             {t('survival.watchdog')}
           </label>
           {isRunning && (
-            <button onClick={handleOpenCmux} style={{
-              padding: '3px 10px', fontSize: 11, borderRadius: 6,
-              border: '1px solid rgba(63,185,80,0.3)', color: '#3fb950', background: 'transparent', cursor: 'pointer',
-            }}>cmux</button>
+            cmuxActive ? (
+              <button onClick={handleBackToWeb} style={{
+                padding: '3px 10px', fontSize: 11, borderRadius: 6,
+                border: '1px solid rgba(139,148,158,0.3)', color: '#8b949e', background: 'transparent', cursor: 'pointer',
+              }}>Web</button>
+            ) : (
+              <button onClick={handleOpenCmux} style={{
+                padding: '3px 10px', fontSize: 11, borderRadius: 6,
+                border: '1px solid rgba(63,185,80,0.3)', color: '#3fb950', background: 'transparent', cursor: 'pointer',
+              }}>cmux</button>
+            )
           )}
           {isRunning && (
             <button onClick={handleAnalyze} disabled={analyzing} style={{
@@ -243,7 +257,20 @@ export default function SurvivalPage() {
       </div>
 
       {/* Terminal - takes all remaining space */}
-      <div ref={termRef} style={{ flex: 1, minHeight: 0 }} />
+      {cmuxActive && (
+        <div style={{
+          flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          flexDirection: 'column', gap: 8, color: '#8b949e', fontSize: 13,
+        }}>
+          <span style={{ fontSize: 20 }}>↗</span>
+          <span>终端已在 cmux 中打开</span>
+          <button onClick={handleBackToWeb} style={{
+            marginTop: 8, padding: '4px 12px', fontSize: 12, borderRadius: 6,
+            border: '1px solid #30363d', color: '#c9d1d9', background: 'transparent', cursor: 'pointer',
+          }}>返回 Web 终端</button>
+        </div>
+      )}
+      <div ref={termRef} style={{ flex: 1, minHeight: 0, display: cmuxActive ? 'none' : 'block' }} />
 
       {/* Input bar */}
       {isRunning && (
