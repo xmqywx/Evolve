@@ -1393,6 +1393,24 @@ async def create_app(config_path: str) -> FastAPI:
     async def survival_status():
         return await survival_engine.get_status()
 
+    @app.post("/api/survival/open-cmux", dependencies=[Depends(verify_auth)])
+    async def open_survival_in_cmux():
+        """Open survival tmux session in a native cmux workspace."""
+        cmux_bin = "/Applications/cmux.app/Contents/Resources/bin/cmux"
+        if not os.path.exists(cmux_bin):
+            raise HTTPException(status_code=404, detail="cmux not installed")
+        proc = await asyncio.create_subprocess_exec(
+            cmux_bin, "new-workspace",
+            "--name", "生存引擎",
+            "--command", "tmux attach-session -t survival",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        stdout, stderr = await proc.communicate()
+        if proc.returncode == 0:
+            return {"status": "opened", "output": stdout.decode().strip()}
+        return {"status": "error", "error": stderr.decode().strip()}
+
     @app.post("/api/survival/discover-session", dependencies=[Depends(verify_auth)])
     async def discover_survival_session():
         """Try to link survival tmux process to a scanner session."""

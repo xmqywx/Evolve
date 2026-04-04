@@ -172,6 +172,10 @@ export default function SurvivalPage() {
     } finally { setAnalyzing(false); }
   };
 
+  const handleOpenCmux = async () => {
+    try { await apiFetch('/api/survival/open-cmux', { method: 'POST' }); } catch {}
+  };
+
   const isRunning = status?.running ?? false;
 
   return (
@@ -210,6 +214,12 @@ export default function SurvivalPage() {
               style={{ width: 14, height: 14, accentColor: '#58a6ff' }} />
             {t('survival.watchdog')}
           </label>
+          {isRunning && (
+            <button onClick={handleOpenCmux} style={{
+              padding: '3px 10px', fontSize: 11, borderRadius: 6,
+              border: '1px solid rgba(63,185,80,0.3)', color: '#3fb950', background: 'transparent', cursor: 'pointer',
+            }}>cmux</button>
+          )}
           {isRunning && (
             <button onClick={handleAnalyze} disabled={analyzing} style={{
               padding: '3px 10px', fontSize: 11, borderRadius: 6,
