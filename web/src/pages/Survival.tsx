@@ -27,6 +27,7 @@ export default function SurvivalPage() {
   const [inputValue, setInputValue] = useState('');
   const [sending, setSending] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
+  const [cmuxActive, setCmuxActive] = useState(false);
   const termRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const fitAddonRef = useRef<FitAddon | null>(null);
@@ -172,7 +173,6 @@ export default function SurvivalPage() {
     } finally { setAnalyzing(false); }
   };
 
-  const [cmuxActive, setCmuxActive] = useState(false);
   const handleOpenCmux = async () => {
     disconnectWs();
     setCmuxActive(true);
