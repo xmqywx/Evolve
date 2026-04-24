@@ -904,8 +904,13 @@ class Database:
     # agent self-report: aggregated stats
     # ------------------------------------------------------------------
 
-    async def get_agent_stats(self) -> dict:
+    async def get_agent_stats(self, digital_human_id: str | None = None) -> dict:
         stats = {}
+        dh_clause = ""
+        dh_params: tuple = ()
+        if digital_human_id is not None:
+            dh_clause = "WHERE digital_human_id = ?"
+            dh_params = (digital_human_id,)
         for table, key in [
             ("agent_heartbeats", "heartbeats"),
             ("agent_deliverables", "deliverables"),
@@ -914,21 +919,41 @@ class Database:
             ("agent_upgrades", "upgrades"),
             ("agent_reviews", "reviews"),
         ]:
-            cursor = await self._db.execute(f"SELECT COUNT(*) FROM {table}")
+            cursor = await self._db.execute(
+                f"SELECT COUNT(*) FROM {table} {dh_clause}", dh_params
+            )
             row = await cursor.fetchone()
             stats[key] = row[0] if row else 0
-        # Pending upgrades count
+        # Pending upgrades count (optionally scoped to DH)
+        pend_clauses = ["status = 'pending'"]
+        pend_params: list = []
+        if digital_human_id is not None:
+            pend_clauses.append("digital_human_id = ?")
+            pend_params.append(digital_human_id)
         cursor = await self._db.execute(
-            "SELECT COUNT(*) FROM agent_upgrades WHERE status = 'pending'"
+            f"SELECT COUNT(*) FROM agent_upgrades WHERE {' AND '.join(pend_clauses)}",
+            pend_params,
         )
         row = await cursor.fetchone()
         stats["pending_upgrades"] = row[0] if row else 0
-        # Today's deliverables
-        cursor = await self._db.execute(
-            "SELECT COUNT(*) FROM agent_deliverables WHERE date(created_at) = date('now')"
-        )
-        row = await cursor.fetchone()
-        stats["deliverables_today"] = row[0] if row else 0
+
+        # Today's counts (optionally scoped to DH)
+        today_clauses = ["date(created_at) = date('now')"]
+        today_params: list = []
+        if digital_human_id is not None:
+            today_clauses.append("digital_human_id = ?")
+            today_params.append(digital_human_id)
+        where = " AND ".join(today_clauses)
+        for table, key in (
+            ("agent_deliverables", "deliverables_today"),
+            ("agent_discoveries", "discoveries_today"),
+            ("agent_heartbeats", "heartbeats_today"),
+        ):
+            cursor = await self._db.execute(
+                f"SELECT COUNT(*) FROM {table} WHERE {where}", today_params
+            )
+            row = await cursor.fetchone()
+            stats[key] = row[0] if row else 0
         return stats
 
     # ------------------------------------------------------------------

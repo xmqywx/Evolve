@@ -19,8 +19,17 @@ interface LatestHeartbeat {
   description?: string;
 }
 
-interface AgentRow {
-  created_at: string;
+interface AgentStatsResp {
+  heartbeats: number;
+  deliverables: number;
+  discoveries: number;
+  workflows: number;
+  upgrades: number;
+  reviews: number;
+  pending_upgrades: number;
+  deliverables_today: number;
+  discoveries_today: number;
+  heartbeats_today: number;
 }
 
 interface TodayStats {
@@ -34,12 +43,6 @@ function dotColor(last: string | null, intervalSecs: number): string {
   if (age < intervalSecs * 2) return 'rgb(34,197,94)';
   if (age < intervalSecs * 4) return 'rgb(251,191,36)';
   return 'rgb(239,68,68)';
-}
-
-function isToday(iso: string): boolean {
-  const d = new Date(iso);
-  const n = new Date();
-  return d.toDateString() === n.toDateString();
 }
 
 export default function DHStatusStrip() {
@@ -66,21 +69,18 @@ export default function DHStatusStrip() {
         }
         setLatest(hbMap);
 
-        // Today's deliverables + discoveries counts per DH
+        // Today's deliverables + discoveries counts per DH — use the
+        // server-side /api/agent/stats endpoint (R17) which filters by
+        // date() in SQL instead of fetching + client-filtering 200 rows.
         const sMap: Record<string, TodayStats> = {};
         for (const dh of data) {
           try {
-            const [deliv, disc] = await Promise.all([
-              apiFetch<AgentRow[]>(
-                `/api/agent/deliverables?limit=200&digital_human_id=${encodeURIComponent(dh.id)}`,
-              ),
-              apiFetch<AgentRow[]>(
-                `/api/agent/discoveries?limit=200&digital_human_id=${encodeURIComponent(dh.id)}`,
-              ),
-            ]);
+            const s = await apiFetch<AgentStatsResp>(
+              `/api/agent/stats?digital_human_id=${encodeURIComponent(dh.id)}`,
+            );
             sMap[dh.id] = {
-              deliverables: deliv.filter((r) => isToday(r.created_at)).length,
-              discoveries: disc.filter((r) => isToday(r.created_at)).length,
+              deliverables: s.deliverables_today,
+              discoveries: s.discoveries_today,
             };
           } catch {
             sMap[dh.id] = { deliverables: 0, discoveries: 0 };

@@ -1098,8 +1098,10 @@ async def create_app(config_path: str) -> FastAPI:
         return await db.list_reviews(limit=limit, digital_human_id=digital_human_id)
 
     @app.get("/api/agent/stats", dependencies=[Depends(verify_auth)])
-    async def get_agent_stats():
-        return await db.get_agent_stats()
+    async def get_agent_stats(digital_human_id: str | None = Query(None)):
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.get_agent_stats(digital_human_id=digital_human_id)
 
     @app.get("/api/agent/config", dependencies=[Depends(verify_auth)])
     async def get_agent_config():
