@@ -858,11 +858,16 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "ok", "id": hb_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/heartbeat", dependencies=[Depends(verify_auth)])
-    async def get_heartbeat(latest: bool = Query(False), limit: int = Query(50)):
+    async def get_heartbeat(
+        latest: bool = Query(False), limit: int = Query(50),
+        digital_human_id: str | None = Query(None),
+    ):
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
         if latest:
-            hb = await db.get_latest_heartbeat()
+            hb = await db.get_latest_heartbeat(digital_human_id=digital_human_id)
             return hb or {}
-        return await db.list_heartbeats(limit=limit)
+        return await db.list_heartbeats(limit=limit, digital_human_id=digital_human_id)
 
     @app.post("/api/agent/deliverable")
     async def agent_deliverable(
@@ -881,8 +886,14 @@ async def create_app(config_path: str) -> FastAPI:
     async def list_deliverables(
         type: str | None = Query(None), status: str | None = Query(None),
         limit: int = Query(50),
+        digital_human_id: str | None = Query(None),
     ):
-        return await db.list_deliverables(type=type, status=status, limit=limit)
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.list_deliverables(
+            type=type, status=status, limit=limit,
+            digital_human_id=digital_human_id,
+        )
 
     @app.patch("/api/agent/deliverables/{deliverable_id}", dependencies=[Depends(verify_auth)])
     async def update_deliverable(deliverable_id: int, req: DeliverableUpdateRequest):
@@ -927,8 +938,14 @@ async def create_app(config_path: str) -> FastAPI:
     async def list_discoveries(
         category: str | None = Query(None), priority: str | None = Query(None),
         limit: int = Query(50),
+        digital_human_id: str | None = Query(None),
     ):
-        return await db.list_discoveries(category=category, priority=priority, limit=limit)
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.list_discoveries(
+            category=category, priority=priority, limit=limit,
+            digital_human_id=digital_human_id,
+        )
 
     @app.post("/api/agent/workflow")
     async def agent_workflow(
@@ -948,8 +965,13 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "ok", "id": w_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/workflows", dependencies=[Depends(verify_auth)])
-    async def list_workflows(limit: int = Query(50)):
-        return await db.list_workflows(limit=limit)
+    async def list_workflows(
+        limit: int = Query(50),
+        digital_human_id: str | None = Query(None),
+    ):
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.list_workflows(limit=limit, digital_human_id=digital_human_id)
 
     @app.get("/api/agent/workflows/{workflow_id}", dependencies=[Depends(verify_auth)])
     async def get_workflow(workflow_id: int):
@@ -996,8 +1018,15 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "ok", "id": u_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/upgrades", dependencies=[Depends(verify_auth)])
-    async def list_upgrades(status: str | None = Query(None), limit: int = Query(50)):
-        return await db.list_upgrades(status=status, limit=limit)
+    async def list_upgrades(
+        status: str | None = Query(None), limit: int = Query(50),
+        digital_human_id: str | None = Query(None),
+    ):
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.list_upgrades(
+            status=status, limit=limit, digital_human_id=digital_human_id,
+        )
 
     @app.patch("/api/agent/upgrades/{upgrade_id}", dependencies=[Depends(verify_auth)])
     async def update_upgrade_status(upgrade_id: int, req: dict):
@@ -1030,8 +1059,13 @@ async def create_app(config_path: str) -> FastAPI:
         return {"status": "ok", "id": r_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/reviews", dependencies=[Depends(verify_auth)])
-    async def list_reviews(limit: int = Query(20)):
-        return await db.list_reviews(limit=limit)
+    async def list_reviews(
+        limit: int = Query(20),
+        digital_human_id: str | None = Query(None),
+    ):
+        if digital_human_id == "":
+            raise HTTPException(400, "empty_digital_human_id")
+        return await db.list_reviews(limit=limit, digital_human_id=digital_human_id)
 
     @app.get("/api/agent/stats", dependencies=[Depends(verify_auth)])
     async def get_agent_stats():

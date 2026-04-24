@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { AgentDeliverable } from '../utils/types';
+import DHFilter from '../components/DHFilter';
 
 function formatTime(iso: string): string {
   return new Date(iso).toLocaleString('zh-CN', { hour12: false });
@@ -52,6 +53,7 @@ export default function OutputPage() {
   const [loading, setLoading] = useState(true);
   const [typeFilter, setTypeFilter] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [dhFilter, setDhFilter] = useState<string | null>(null);
   const [projects, setProjects] = useState<ProjectInfo[]>([]);
   const [showProjects, setShowProjects] = useState(true);
   const [expandedId, setExpandedId] = useState<number | null>(null);
@@ -62,12 +64,13 @@ export default function OutputPage() {
       let url = '/api/agent/deliverables?limit=100';
       if (typeFilter) url += `&type=${encodeURIComponent(typeFilter)}`;
       if (statusFilter) url += `&status=${encodeURIComponent(statusFilter)}`;
+      if (dhFilter) url += `&digital_human_id=${encodeURIComponent(dhFilter)}`;
       const data = await apiFetch<AgentDeliverable[]>(url);
       setDeliverables(data);
     } catch { /* */ } finally {
       setLoading(false);
     }
-  }, [typeFilter, statusFilter]);
+  }, [typeFilter, statusFilter, dhFilter]);
 
   useEffect(() => { fetchDeliverables(); }, [fetchDeliverables]);
 
@@ -147,7 +150,8 @@ export default function OutputPage() {
       )}
 
       {/* Filters */}
-      <div className="flex gap-4 flex-wrap">
+      <div className="flex gap-4 flex-wrap items-center">
+        <DHFilter value={dhFilter} onChange={setDhFilter} />
         <div className="flex gap-1 items-center">
           <span className="text-[11px]" style={{ color: 'var(--text-muted)' }}>{t('output.type')}</span>
           {['', ...types].map((tp) => (
