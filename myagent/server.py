@@ -568,6 +568,24 @@ async def create_app(config_path: str) -> FastAPI:
         dh_registry.list_ids(),
     )
 
+    # Observer engine — only start if observer is configured AND enabled
+    from myagent.observer import ObserverEngine
+    observer_cfg = config.digital_humans.get("observer")
+    app.state.observer_engine = None
+    if observer_cfg and observer_cfg.enabled:
+        try:
+            observer_engine = ObserverEngine(
+                db=db,
+                registry=dh_registry,
+                config=config,
+                port=config.server.port,
+            )
+            app.state.observer_engine = observer_engine
+            asyncio.create_task(observer_engine.start())
+            logger.info("ObserverEngine scheduled to start")
+        except Exception:
+            logger.exception("ObserverEngine init failed; continuing without it")
+
     # ------------------------------------------------------------------
     # Public routes
     # ------------------------------------------------------------------
@@ -798,6 +816,16 @@ async def create_app(config_path: str) -> FastAPI:
             raise HTTPException(503, "observer_engine_not_initialized")
         await engine.stop()
         return {"status": "stopped"}
+
+    @app.get("/api/admin/dh_token/{dh_id}", dependencies=[Depends(verify_auth)])
+    async def admin_dh_token(dh_id: str, request: Request):
+        """DEBUG: reveal current token for a DH. Behind master auth only.
+        Used for manual smoke tests and red-team verification."""
+        from myagent.digital_humans import get_active_token
+        tok = get_active_token(request.app.state.dh_registry, dh_id)
+        if not tok:
+            raise HTTPException(404, "no_active_token")
+        return {"digital_human_id": dh_id, "token": tok}
 
     @app.post("/api/digital_humans/{dh_id}/restart", dependencies=[Depends(verify_auth)])
     async def restart_digital_human(dh_id: str, request: Request):
