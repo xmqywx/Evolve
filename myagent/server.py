@@ -21,6 +21,7 @@ from myagent.claude_mem import ClaudeMemBridge
 from myagent.config import load_config, AgentConfig
 from myagent.context_manager import ContextManager
 from myagent.db import Database
+from myagent.dh_auth import auth_dh, require_endpoint
 from myagent.doubao import DoubaoClient
 from myagent.embedding import EmbeddingStore
 from myagent.feishu import FeishuClient, build_task_card, build_sessions_card, parse_feishu_event
@@ -226,6 +227,11 @@ async def create_app(config_path: str) -> FastAPI:
     config = load_config(config_path)
     db = Database(config.agent.db_path)
     await db.init()
+
+    # Apply S1 migration idempotently on every startup so both fresh installs
+    # and upgrades land with digital_human_id + dedup table.
+    from myagent.migrations import migration_001
+    await migration_001.run(config.agent.db_path)
 
     # Crash recovery: reset any RUNNING tasks to PENDING
     running_tasks = await db.list_tasks(status=TaskStatus.RUNNING)
@@ -808,14 +814,20 @@ async def create_app(config_path: str) -> FastAPI:
     # Agent Self-Report API (Phase 3)
     # ------------------------------------------------------------------
 
-    @app.post("/api/agent/heartbeat", dependencies=[Depends(verify_auth)])
-    async def agent_heartbeat(req: HeartbeatRequest):
+    @app.post("/api/agent/heartbeat")
+    async def agent_heartbeat(
+        req: HeartbeatRequest,
+        request: Request,
+        dh_id: str = Depends(require_endpoint("heartbeat")),
+    ):
         hb_id = await db.add_heartbeat(
             activity=req.activity, description=req.description,
             task_ref=req.task_ref, progress_pct=req.progress_pct,
             eta_minutes=req.eta_minutes,
+            digital_human_id=dh_id,
         )
-        return {"status": "ok", "id": hb_id}
+        request.app.state.dh_registry.record_heartbeat(dh_id)
+        return {"status": "ok", "id": hb_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/heartbeat", dependencies=[Depends(verify_auth)])
     async def get_heartbeat(latest: bool = Query(False), limit: int = Query(50)):
@@ -824,14 +836,18 @@ async def create_app(config_path: str) -> FastAPI:
             return hb or {}
         return await db.list_heartbeats(limit=limit)
 
-    @app.post("/api/agent/deliverable", dependencies=[Depends(verify_auth)])
-    async def agent_deliverable(req: DeliverableRequest):
+    @app.post("/api/agent/deliverable")
+    async def agent_deliverable(
+        req: DeliverableRequest,
+        dh_id: str = Depends(require_endpoint("deliverable")),
+    ):
         d_id = await db.add_deliverable(
             title=req.title, type=req.type, status=req.status,
             path=req.path, summary=req.summary, repo=req.repo,
             value_estimate=req.value_estimate,
+            digital_human_id=dh_id,
         )
-        return {"status": "ok", "id": d_id}
+        return {"status": "ok", "id": d_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/deliverables", dependencies=[Depends(verify_auth)])
     async def list_deliverables(
@@ -848,17 +864,36 @@ async def create_app(config_path: str) -> FastAPI:
             raise HTTPException(status_code=404, detail="Deliverable not found")
         return {"status": "ok"}
 
-    @app.post("/api/agent/discovery", dependencies=[Depends(verify_auth)])
-    async def agent_discovery(req: DiscoveryRequest):
+    @app.post("/api/agent/discovery")
+    async def agent_discovery(
+        req: DiscoveryRequest,
+        dh_id: str = Depends(require_endpoint("discovery")),
+    ):
+        # S1 loop-prevention: server-computed dedup_key (ignores client input)
+        import hashlib as _hl
+        from datetime import datetime as _dt, timezone as _tz
+        _date = _dt.now(_tz.utc).strftime("%Y-%m-%d")
+        _raw = f"{req.title.lower().strip()}|{req.category}|{_date}"
+        dedup_key = _hl.sha256(_raw.encode()).hexdigest()[:32]
+        existing = await db.get_dedup(dedup_key)
+        if existing:
+            await db.increment_dedup(dedup_key)
+            return {
+                "status": "duplicate_suppressed",
+                "hit_count": existing["hit_count"] + 1,
+                "digital_human_id": dh_id,
+            }
+        await db.insert_dedup(dedup_key)
         d_id = await db.add_discovery(
             title=req.title, category=req.category, content=req.content,
             actionable=req.actionable, priority=req.priority,
+            digital_human_id=dh_id,
         )
         if knowledge_engine:
             asyncio.create_task(knowledge_engine.ingest_from_discovery(
                 req.title, req.content, req.category, req.priority, source_id=d_id,
             ))
-        return {"status": "ok", "id": d_id}
+        return {"status": "ok", "id": d_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/discoveries", dependencies=[Depends(verify_auth)])
     async def list_discoveries(
@@ -867,8 +902,11 @@ async def create_app(config_path: str) -> FastAPI:
     ):
         return await db.list_discoveries(category=category, priority=priority, limit=limit)
 
-    @app.post("/api/agent/workflow", dependencies=[Depends(verify_auth)])
-    async def agent_workflow(req: WorkflowRequest):
+    @app.post("/api/agent/workflow")
+    async def agent_workflow(
+        req: WorkflowRequest,
+        dh_id: str = Depends(require_endpoint("workflow")),
+    ):
         import json as _json
         steps_json = _json.dumps(req.steps) if req.steps else None
         deps_json = _json.dumps(req.dependencies) if req.dependencies else None
@@ -877,8 +915,9 @@ async def create_app(config_path: str) -> FastAPI:
             description=req.description, steps=steps_json,
             dependencies=deps_json, estimated_time=req.estimated_time,
             estimated_value=req.estimated_value, enabled=req.enabled,
+            digital_human_id=dh_id,
         )
-        return {"status": "ok", "id": w_id}
+        return {"status": "ok", "id": w_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/workflows", dependencies=[Depends(verify_auth)])
     async def list_workflows(limit: int = Query(50)):
@@ -916,13 +955,17 @@ async def create_app(config_path: str) -> FastAPI:
     async def list_workflow_runs(workflow_id: int, limit: int = Query(20)):
         return await db.list_workflow_runs(workflow_id, limit=limit)
 
-    @app.post("/api/agent/upgrade", dependencies=[Depends(verify_auth)])
-    async def agent_upgrade(req: UpgradeRequest):
+    @app.post("/api/agent/upgrade")
+    async def agent_upgrade(
+        req: UpgradeRequest,
+        dh_id: str = Depends(require_endpoint("upgrade")),
+    ):
         u_id = await db.add_upgrade(
             proposal=req.proposal, reason=req.reason,
             risk=req.risk, impact=req.impact,
+            digital_human_id=dh_id,
         )
-        return {"status": "ok", "id": u_id}
+        return {"status": "ok", "id": u_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/upgrades", dependencies=[Depends(verify_auth)])
     async def list_upgrades(status: str | None = Query(None), limit: int = Query(50)):
@@ -938,8 +981,11 @@ async def create_app(config_path: str) -> FastAPI:
             raise HTTPException(status_code=404, detail="Upgrade not found")
         return {"status": "ok"}
 
-    @app.post("/api/agent/review", dependencies=[Depends(verify_auth)])
-    async def agent_review(req: ReviewRequest):
+    @app.post("/api/agent/review")
+    async def agent_review(
+        req: ReviewRequest,
+        dh_id: str = Depends(require_endpoint("review")),
+    ):
         import json
         r_id = await db.add_review(
             period=req.period,
@@ -949,10 +995,11 @@ async def create_app(config_path: str) -> FastAPI:
             next_priorities=json.dumps(req.next_priorities) if req.next_priorities else None,
             tokens_used=req.tokens_used,
             cost_estimate=req.cost_estimate,
+            digital_human_id=dh_id,
         )
         if req.learned and knowledge_engine:
             asyncio.create_task(knowledge_engine.ingest_from_review(req.learned, source_id=r_id))
-        return {"status": "ok", "id": r_id}
+        return {"status": "ok", "id": r_id, "digital_human_id": dh_id}
 
     @app.get("/api/agent/reviews", dependencies=[Depends(verify_auth)])
     async def list_reviews(limit: int = Query(20)):
