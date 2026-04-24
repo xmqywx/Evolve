@@ -87,9 +87,11 @@ class ChatSettings(BaseModel):
     max_messages_before_rotate: int = 50
     context_max_tokens: int = 2000
     persona_files: list[str] = [
-        "persona/identity.md",
-        "persona/about_ying.md",
-        "persona/principles.md",
+        "{id}/identity.md",
+        "{id}/knowledge.md",
+        "{id}/principles.md",
+        "about_ying.md",
+        "private.md",
     ]
 
 

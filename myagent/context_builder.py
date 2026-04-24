@@ -22,28 +22,43 @@ class ContextBuilder:
         session_registry: SessionRegistry,
         memory_manager: MemoryManager,
         chat_settings: ChatSettings,
-        persona_dir: str = "",
+        persona_root: str = "",
+        digital_human_id: str = "executor",
     ) -> None:
         self._db = db
         self._registry = session_registry
         self._memory = memory_manager
         self._settings = chat_settings
-        self._persona_dir = persona_dir
+        self._persona_root = persona_root
+        self._digital_human_id = digital_human_id
         self._persona_cache: str | None = None
 
     def _load_persona(self) -> str:
+        """Load persona files for this DH.
+
+        persona_files entries support an `{id}` placeholder which expands to
+        the DH id. Example:
+            "{id}/identity.md"  → persona/executor/identity.md (DH-specific; required)
+            "about_ying.md"     → persona/about_ying.md         (shared; optional)
+
+        DH-specific files (containing `{id}`) fail loudly when missing.
+        Shared files are silently skipped when absent.
+        """
         if self._persona_cache is not None:
             return self._persona_cache
-        if not self._persona_dir:
+        if not self._persona_root:
             self._persona_cache = ""
             return ""
-        parts = []
-        for filename in self._settings.persona_files:
-            path = Path(self._persona_dir).parent / filename if "/" in filename else Path(self._persona_dir) / filename
-            # Handle relative paths from project root
+        parts: list[str] = []
+        for fn_template in self._settings.persona_files:
+            is_dh_specific = "{id}" in fn_template
+            fn = fn_template.replace("{id}", self._digital_human_id)
+            path = Path(self._persona_root) / fn
             if not path.exists():
-                path = Path(self._persona_dir).parent / filename
-            if not path.exists():
+                if is_dh_specific:
+                    raise FileNotFoundError(
+                        f"missing DH-specific persona file for '{self._digital_human_id}': {path}"
+                    )
                 continue
             try:
                 content = path.read_text(encoding="utf-8").strip()
