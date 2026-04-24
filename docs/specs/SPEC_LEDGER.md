@@ -18,7 +18,9 @@ Status values:
 | `2026-03-13-myagent-v2-design.md` | 2026-03-13 | Superseded | `docs/OVERVIEW.md` | V2 main trunk. OVERVIEW is the merged/refined version. |
 | `2026-03-14-workflow-v2-design.md` | 2026-03-14 | Superseded | `docs/OVERVIEW.md` | Workflows page + workflow store. Absorbed into OVERVIEW § Workflows Subsystem. |
 | `2026-03-15-knowledge-hub-design.md` | 2026-03-15 | Superseded | `docs/OVERVIEW.md` | Memory / knowledge hub. Absorbed into OVERVIEW § Memory / Knowledge Hub. |
-| `2026-04-24-stabilization-sprint-design.md` | 2026-04-24 | Active | — | This round — documentation cleanup. Preparing ground for multi-digital-human spec (next round). |
+| `2026-04-24-stabilization-sprint-design.md` | 2026-04-24 | Completed | — | Documentation cleanup round (executed 2026-04-24). Prepared ground for multi-DH roadmap. |
+| `2026-04-24-multi-digital-human-roadmap.md` | 2026-04-24 | Active | — | Multi-DH roadmap: 3 stages (S1 Observer, S2 Planner+Conductor, S3 Evolver). Only S1 is designed in detail. |
+| `2026-04-24-s1-observer-digital-human.md` | 2026-04-24 | Active | — | Stage 1 detailed design: add Observer DH + land shared contracts (`digital_human_id`, per-DH persona/runtime dirs). |
 
 ---
 
