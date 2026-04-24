@@ -113,9 +113,25 @@ Full test suite at completion of code: **224 pass / 2 pre-existing failures / 19
 
 ### Live validation status
 
-✅ **Day 0 passed 2026-04-24 20:49 CST** — see `docs/s1-daily-log.md`
-✅ launchd agent `com.ying.myagent.s1check` installed — runs daily 23:55
-🚧 Day 1–7 in progress — auto-appends to `docs/s1-daily-log.md`
+✅ **Day 0 smoke passed 2026-04-24 20:49 CST** — see `docs/s1-daily-log.md`
+✅ **Day 0+ 10-round hardening 2026-04-24 21:23–21:40 CST** — see rounds R1–R10 below
+✅ Daily check wired into in-process `_supervisor_loop` (23:00 cron) — writes to `docs/s1-daily-log.md`
+🚧 Day 1–7 gathering real observer discoveries — supervisor loop auto-appends nightly
+
+### 10-round self-audit rollout (2026-04-24 evening)
+
+| Round | Fix | Commit |
+|-------|-----|--------|
+| R1 | Cold-start Executor → T27 token mint path actually fires + state.json populated | `8ef4268` |
+| R2 | Harden: `BACKCOMPAT_MASTER_AS_EXECUTOR = False` (close master-token writes-as-executor hole) | `3c771e5` |
+| R3 | Move daily check from launchd (hit macOS TCC) into in-process `_supervisor_loop` | `93d6d83` |
+| R4 | Production `vite build` green — fix `apiFetch<T>` misuse + unused imports | `6845fd4` |
+| R5 | Observer `_render_prompt` crashed on `None` DB fields → helper + regression test | `702e8f7` |
+| R6 | `ContextManager` DH-aware; remove `/executor` path-join hack in server.py | `38589ae` |
+| R7 | Drop 2 obsolete `chat_manager` tests → **full suite 225/0 green** | `a812ef0` |
+| R8 | `SurvivalEngine.start()` now calls `registry.mark_started("executor", ...)` so executor state.json populates | `9cd8f58` |
+| R9 | `.gitignore digital_humans/` runtime state + security audit (tokens not leakable via ps/history) | `5c37d23` |
+| R10 | Final sweep: 225 pass, both DHs healthy on API, cmux alive | _this commit_ |
 
 ### When validation window ends (day 7)
 
