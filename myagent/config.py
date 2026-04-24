@@ -128,6 +128,16 @@ class DigitalHumanEntry(BaseModel):
     skill_whitelist: list[str] = []
     endpoint_allowlist: list[str] = []
     enabled: bool = True
+    model: str = ""                       # empty = use global provider default
+    prompt_template_file: str = ""        # empty = use identity.md
+    mcp_servers: list[str] = []           # keys into mcp_pool
+    # NOTE: existing `skill_whitelist` stays; tests use it. Do not rename.
+
+
+class MCPPoolEntry(BaseModel):
+    command: str = ""
+    args: list[str] = []
+    env: dict[str, str] = {}
 
 
 class AgentConfig(BaseModel):
@@ -148,6 +158,7 @@ class AgentConfig(BaseModel):
     profile: ProfileSettings = ProfileSettings()
     jwt: JWTSettings = JWTSettings()
     digital_humans: dict[str, DigitalHumanEntry] = {}
+    mcp_pool: dict[str, MCPPoolEntry] = {}
 
 
 def load_config(path: str) -> AgentConfig:

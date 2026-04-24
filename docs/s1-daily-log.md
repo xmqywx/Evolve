@@ -63,3 +63,12 @@ Started: 2026-04-24
 - dedup suppressions (hit_count>1): 1
 - discovery burst last hour: 1
 - role isolation (expect all 0): {"agent_deliverables": 0, "agent_workflows": 0, "agent_upgrades": 0, "agent_reviews": 0}
+
+## Auto daily check — 2026-04-24T15:01:18.445651+00:00
+- observer discovery count: 3
+- observer restart_count: 1
+- observer last_heartbeat_at: 2026-04-24T14:13:32.306117+00:00
+- executor last_heartbeat_at: 2026-04-24T13:49:56.266110+00:00
+- dedup suppressions (hit_count>1): 1
+- discovery burst last hour: 3
+- role isolation (expect all 0): {"agent_deliverables": 0, "agent_workflows": 0, "agent_upgrades": 0, "agent_reviews": 0}

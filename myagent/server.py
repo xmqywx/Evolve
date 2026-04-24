@@ -232,6 +232,8 @@ async def create_app(config_path: str) -> FastAPI:
     # and upgrades land with digital_human_id + dedup table.
     from myagent.migrations import migration_001
     await migration_001.run(config.agent.db_path)
+    from myagent.migrations import migration_002
+    await migration_002.run(config.agent.db_path)
 
     # Crash recovery: reset any RUNNING tasks to PENDING
     running_tasks = await db.list_tasks(status=TaskStatus.RUNNING)
