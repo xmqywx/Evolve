@@ -19,6 +19,15 @@ interface LatestHeartbeat {
   description?: string;
 }
 
+interface AgentRow {
+  created_at: string;
+}
+
+interface TodayStats {
+  discoveries: number;
+  deliverables: number;
+}
+
 function dotColor(last: string | null, intervalSecs: number): string {
   if (!last) return 'rgb(113,113,122)';
   const age = (Date.now() - new Date(last).getTime()) / 1000;
@@ -27,9 +36,16 @@ function dotColor(last: string | null, intervalSecs: number): string {
   return 'rgb(239,68,68)';
 }
 
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const n = new Date();
+  return d.toDateString() === n.toDateString();
+}
+
 export default function DHStatusStrip() {
   const [dhs, setDhs] = useState<DHEntry[]>([]);
   const [latest, setLatest] = useState<Record<string, LatestHeartbeat>>({});
+  const [stats, setStats] = useState<Record<string, TodayStats>>({});
 
   useEffect(() => {
     const fetchAll = async () => {
@@ -49,6 +65,28 @@ export default function DHStatusStrip() {
           }
         }
         setLatest(hbMap);
+
+        // Today's deliverables + discoveries counts per DH
+        const sMap: Record<string, TodayStats> = {};
+        for (const dh of data) {
+          try {
+            const [deliv, disc] = await Promise.all([
+              apiFetch<AgentRow[]>(
+                `/api/agent/deliverables?limit=200&digital_human_id=${encodeURIComponent(dh.id)}`,
+              ),
+              apiFetch<AgentRow[]>(
+                `/api/agent/discoveries?limit=200&digital_human_id=${encodeURIComponent(dh.id)}`,
+              ),
+            ]);
+            sMap[dh.id] = {
+              deliverables: deliv.filter((r) => isToday(r.created_at)).length,
+              discoveries: disc.filter((r) => isToday(r.created_at)).length,
+            };
+          } catch {
+            sMap[dh.id] = { deliverables: 0, discoveries: 0 };
+          }
+        }
+        setStats(sMap);
       } catch {
         // silent
       }
@@ -70,6 +108,7 @@ export default function DHStatusStrip() {
       </span>
       {dhs.map((dh) => {
         const hb = latest[dh.id] || {};
+        const s = stats[dh.id] || { deliverables: 0, discoveries: 0 };
         const dot = dotColor(dh.state.last_heartbeat_at, dh.config.heartbeat_interval_secs);
         return (
           <Link
@@ -86,6 +125,20 @@ export default function DHStatusStrip() {
             <span style={{ color: 'var(--text-muted)' }}>
               : {hb.activity || 'idle'}
             </span>
+            {(s.deliverables > 0 || s.discoveries > 0) && (
+              <span className="ml-1 flex gap-1 text-[10px]" style={{ color: 'var(--text-muted)' }}>
+                {s.deliverables > 0 && (
+                  <span title="today's deliverables" style={{ color: 'rgb(139,92,246)' }}>
+                    📦{s.deliverables}
+                  </span>
+                )}
+                {s.discoveries > 0 && (
+                  <span title="today's discoveries" style={{ color: 'rgb(74,222,128)' }}>
+                    💡{s.discoveries}
+                  </span>
+                )}
+              </span>
+            )}
           </Link>
         );
       })}
