@@ -88,6 +88,13 @@ export default function SurvivalPage() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <span style={{ fontSize: 13, fontWeight: 600, color: '#c9d1d9' }}>{t('survival.title')}</span>
+          <span
+            title={t('survival.executorOnlyHint')}
+            style={{ fontSize: 10, padding: '1px 6px', borderRadius: 9999,
+                     background: 'rgba(96,165,250,0.18)', color: 'rgb(96,165,250)' }}
+          >
+            executor
+          </span>
           {isRunning
             ? <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 9999, background: 'rgba(248,81,73,0.15)', color: '#ff7b72' }}>{t('survival.running')}</span>
             : <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 9999, background: '#21262d', color: '#8b949e' }}>{t('survival.stopped')}</span>

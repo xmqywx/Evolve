@@ -6,7 +6,7 @@
     "promptPerDH": "Identity Prompt",
     "chat": "AI Chat",
     "sessions": "Sessions",
-    "survival": "Survival Engine",
+    "survival": "Executor Engine",
     "output": "Output",
     "workflows": "Workflows",
     "capabilities": "Capabilities",
@@ -180,7 +180,8 @@
     "close": "Close"
   },
   "survival": {
-    "title": "Survival Engine",
+    "title": "Executor Engine",
+    "executorOnlyHint": "This page controls the Executor DH's cmux session. Other DHs (Observer, etc.) are managed from the Digital Humans page.",
     "running": "Running",
     "stopped": "Stopped",
     "connected": "Connected",

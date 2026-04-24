@@ -6,7 +6,7 @@
     "promptPerDH": "身份 Prompt",
     "chat": "AI 对话",
     "sessions": "会话",
-    "survival": "生存引擎",
+    "survival": "Executor 引擎",
     "output": "产出",
     "workflows": "工作流",
     "capabilities": "能力",
@@ -180,7 +180,8 @@
     "close": "关闭"
   },
   "survival": {
-    "title": "生存引擎",
+    "title": "Executor 引擎",
+    "executorOnlyHint": "本页控制 Executor 数字人的 cmux 会话；Observer 等其他数字人在「数字人」页启停",
     "running": "运行中",
     "stopped": "已停止",
     "connected": "已连接",
