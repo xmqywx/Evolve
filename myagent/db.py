@@ -502,27 +502,43 @@ class Database:
         self, activity: str, description: str | None = None,
         task_ref: str | None = None, progress_pct: int | None = None,
         eta_minutes: int | None = None,
+        digital_human_id: str = "executor",
     ) -> int:
         cursor = await self._db.execute(
-            """INSERT INTO agent_heartbeats (activity, description, task_ref, progress_pct, eta_minutes, created_at)
-               VALUES (?,?,?,?,?,?)""",
+            """INSERT INTO agent_heartbeats
+               (activity, description, task_ref, progress_pct, eta_minutes, digital_human_id, created_at)
+               VALUES (?,?,?,?,?,?,?)""",
             (activity, description, task_ref, progress_pct, eta_minutes,
-             datetime.now(timezone.utc).isoformat()),
+             digital_human_id, datetime.now(timezone.utc).isoformat()),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def get_latest_heartbeat(self) -> dict | None:
-        cursor = await self._db.execute(
-            "SELECT * FROM agent_heartbeats ORDER BY id DESC LIMIT 1"
-        )
+    async def get_latest_heartbeat(self, digital_human_id: str | None = None) -> dict | None:
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_heartbeats ORDER BY id DESC LIMIT 1"
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_heartbeats WHERE digital_human_id = ? ORDER BY id DESC LIMIT 1",
+                (digital_human_id,),
+            )
         row = await cursor.fetchone()
         return dict(row) if row else None
 
-    async def list_heartbeats(self, limit: int = 50) -> list[dict]:
-        cursor = await self._db.execute(
-            "SELECT * FROM agent_heartbeats ORDER BY id DESC LIMIT ?", (limit,)
-        )
+    async def list_heartbeats(
+        self, limit: int = 50, digital_human_id: str | None = None,
+    ) -> list[dict]:
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_heartbeats ORDER BY id DESC LIMIT ?", (limit,)
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_heartbeats WHERE digital_human_id = ? ORDER BY id DESC LIMIT ?",
+                (digital_human_id, limit),
+            )
         return [dict(r) for r in await cursor.fetchall()]
 
     # ------------------------------------------------------------------
@@ -533,17 +549,24 @@ class Database:
         self, title: str, type: str = "code", status: str = "draft",
         path: str | None = None, summary: str | None = None,
         repo: str | None = None, value_estimate: str | None = None,
+        digital_human_id: str = "executor",
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
-            """INSERT INTO agent_deliverables (title, type, status, path, summary, repo, value_estimate, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?)""",
-            (title, type, status, path, summary, repo, value_estimate, now, now),
+            """INSERT INTO agent_deliverables
+               (title, type, status, path, summary, repo, value_estimate,
+                digital_human_id, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?)""",
+            (title, type, status, path, summary, repo, value_estimate,
+             digital_human_id, now, now),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def list_deliverables(self, type: str | None = None, status: str | None = None, limit: int = 50) -> list[dict]:
+    async def list_deliverables(
+        self, type: str | None = None, status: str | None = None,
+        limit: int = 50, digital_human_id: str | None = None,
+    ) -> list[dict]:
         conditions, params = [], []
         if type:
             conditions.append("type = ?")
@@ -551,6 +574,9 @@ class Database:
         if status:
             conditions.append("status = ?")
             params.append(status)
+        if digital_human_id is not None:
+            conditions.append("digital_human_id = ?")
+            params.append(digital_human_id)
         where = " WHERE " + " AND ".join(conditions) if conditions else ""
         params.append(limit)
         cursor = await self._db.execute(
@@ -580,17 +606,22 @@ class Database:
         self, title: str, category: str = "insight",
         content: str | None = None, actionable: bool = False,
         priority: str = "medium",
+        digital_human_id: str = "executor",
     ) -> int:
         cursor = await self._db.execute(
-            """INSERT INTO agent_discoveries (title, category, content, actionable, priority, created_at)
-               VALUES (?,?,?,?,?,?)""",
-            (title, category, content, actionable, priority,
+            """INSERT INTO agent_discoveries
+               (title, category, content, actionable, priority, digital_human_id, created_at)
+               VALUES (?,?,?,?,?,?,?)""",
+            (title, category, content, actionable, priority, digital_human_id,
              datetime.now(timezone.utc).isoformat()),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def list_discoveries(self, category: str | None = None, priority: str | None = None, limit: int = 50) -> list[dict]:
+    async def list_discoveries(
+        self, category: str | None = None, priority: str | None = None,
+        limit: int = 50, digital_human_id: str | None = None,
+    ) -> list[dict]:
         conditions, params = [], []
         if category:
             conditions.append("category = ?")
@@ -598,6 +629,9 @@ class Database:
         if priority:
             conditions.append("priority = ?")
             params.append(priority)
+        if digital_human_id is not None:
+            conditions.append("digital_human_id = ?")
+            params.append(digital_human_id)
         where = " WHERE " + " AND ".join(conditions) if conditions else ""
         params.append(limit)
         cursor = await self._db.execute(
@@ -615,23 +649,33 @@ class Database:
         steps: str | None = None, dependencies: str | None = None,
         estimated_time: int | None = None, estimated_value: str | None = None,
         enabled: bool = False,
+        digital_human_id: str = "executor",
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
             """INSERT INTO agent_workflows
                (name, trigger, category, description, steps, dependencies,
-                estimated_time, estimated_value, enabled, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+                estimated_time, estimated_value, enabled, digital_human_id,
+                created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
             (name, trigger, category, description, steps, dependencies,
-             estimated_time, estimated_value, enabled, now, now),
+             estimated_time, estimated_value, enabled, digital_human_id, now, now),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def list_workflows(self, limit: int = 50) -> list[dict]:
-        cursor = await self._db.execute(
-            "SELECT * FROM agent_workflows ORDER BY id DESC LIMIT ?", (limit,)
-        )
+    async def list_workflows(
+        self, limit: int = 50, digital_human_id: str | None = None,
+    ) -> list[dict]:
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_workflows ORDER BY id DESC LIMIT ?", (limit,)
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_workflows WHERE digital_human_id = ? ORDER BY id DESC LIMIT ?",
+                (digital_human_id, limit),
+            )
         workflows = [dict(r) for r in await cursor.fetchall()]
         # Attach run stats for each workflow
         for w in workflows:
@@ -731,26 +775,34 @@ class Database:
     async def add_upgrade(
         self, proposal: str, reason: str | None = None,
         risk: str = "low", impact: str | None = None,
+        digital_human_id: str = "executor",
     ) -> int:
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
-            """INSERT INTO agent_upgrades (proposal, reason, risk, impact, status, created_at, updated_at)
-               VALUES (?,?,?,?,?,?,?)""",
-            (proposal, reason, risk, impact, "pending", now, now),
+            """INSERT INTO agent_upgrades
+               (proposal, reason, risk, impact, status, digital_human_id, created_at, updated_at)
+               VALUES (?,?,?,?,?,?,?,?)""",
+            (proposal, reason, risk, impact, "pending", digital_human_id, now, now),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def list_upgrades(self, status: str | None = None, limit: int = 50) -> list[dict]:
+    async def list_upgrades(
+        self, status: str | None = None, limit: int = 50,
+        digital_human_id: str | None = None,
+    ) -> list[dict]:
+        conditions, params = [], []
         if status:
-            cursor = await self._db.execute(
-                "SELECT * FROM agent_upgrades WHERE status = ? ORDER BY id DESC LIMIT ?",
-                (status, limit),
-            )
-        else:
-            cursor = await self._db.execute(
-                "SELECT * FROM agent_upgrades ORDER BY id DESC LIMIT ?", (limit,)
-            )
+            conditions.append("status = ?")
+            params.append(status)
+        if digital_human_id is not None:
+            conditions.append("digital_human_id = ?")
+            params.append(digital_human_id)
+        where = " WHERE " + " AND ".join(conditions) if conditions else ""
+        params.append(limit)
+        cursor = await self._db.execute(
+            f"SELECT * FROM agent_upgrades{where} ORDER BY id DESC LIMIT ?", params,
+        )
         return [dict(r) for r in await cursor.fetchall()]
 
     async def update_upgrade(self, upgrade_id: int, status: str) -> bool:
@@ -771,28 +823,82 @@ class Database:
         failed: str | None = None, learned: str | None = None,
         next_priorities: str | None = None, tokens_used: int | None = None,
         cost_estimate: str | None = None,
+        digital_human_id: str = "executor",
     ) -> int:
         cursor = await self._db.execute(
-            """INSERT INTO agent_reviews (period, accomplished, failed, learned, next_priorities, tokens_used, cost_estimate, created_at)
-               VALUES (?,?,?,?,?,?,?,?)""",
+            """INSERT INTO agent_reviews
+               (period, accomplished, failed, learned, next_priorities,
+                tokens_used, cost_estimate, digital_human_id, created_at)
+               VALUES (?,?,?,?,?,?,?,?,?)""",
             (period, accomplished, failed, learned, next_priorities,
-             tokens_used, cost_estimate, datetime.now(timezone.utc).isoformat()),
+             tokens_used, cost_estimate, digital_human_id,
+             datetime.now(timezone.utc).isoformat()),
         )
         await self._db.commit()
         return cursor.lastrowid
 
-    async def list_reviews(self, limit: int = 20) -> list[dict]:
-        cursor = await self._db.execute(
-            "SELECT * FROM agent_reviews ORDER BY id DESC LIMIT ?", (limit,)
-        )
+    async def list_reviews(
+        self, limit: int = 20, digital_human_id: str | None = None,
+    ) -> list[dict]:
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_reviews ORDER BY id DESC LIMIT ?", (limit,)
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_reviews WHERE digital_human_id = ? ORDER BY id DESC LIMIT ?",
+                (digital_human_id, limit),
+            )
         return [dict(r) for r in await cursor.fetchall()]
 
-    async def get_latest_review(self) -> dict | None:
+    async def get_latest_review(self, digital_human_id: str | None = None) -> dict | None:
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_reviews ORDER BY id DESC LIMIT 1"
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT * FROM agent_reviews WHERE digital_human_id = ? ORDER BY id DESC LIMIT 1",
+                (digital_human_id,),
+            )
+        row = await cursor.fetchone()
+        return dict(row) if row else None
+
+    # ------------------------------------------------------------------
+    # agent self-report: discovery dedup (S1 multi-DH roadmap)
+    # ------------------------------------------------------------------
+
+    async def insert_dedup(self, dedup_key: str) -> None:
+        await self._db.execute(
+            "INSERT OR IGNORE INTO agent_discovery_dedup "
+            "(dedup_key, first_seen_at) VALUES (?, ?)",
+            (dedup_key, datetime.now(timezone.utc).isoformat()),
+        )
+        await self._db.commit()
+
+    async def get_dedup(self, dedup_key: str) -> dict | None:
         cursor = await self._db.execute(
-            "SELECT * FROM agent_reviews ORDER BY id DESC LIMIT 1"
+            "SELECT * FROM agent_discovery_dedup WHERE dedup_key = ?", (dedup_key,)
         )
         row = await cursor.fetchone()
         return dict(row) if row else None
+
+    async def increment_dedup(self, dedup_key: str) -> None:
+        await self._db.execute(
+            "UPDATE agent_discovery_dedup SET hit_count = hit_count + 1 "
+            "WHERE dedup_key = ?",
+            (dedup_key,),
+        )
+        await self._db.commit()
+
+    async def purge_dedup_ttl(self, days: int = 7) -> int:
+        cursor = await self._db.execute(
+            "DELETE FROM agent_discovery_dedup "
+            "WHERE first_seen_at < datetime('now', ?)",
+            (f"-{days} days",),
+        )
+        await self._db.commit()
+        return cursor.rowcount
 
     # ------------------------------------------------------------------
     # agent self-report: aggregated stats
