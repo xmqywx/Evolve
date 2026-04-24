@@ -725,6 +725,10 @@ class SurvivalEngine:
             tmp_file.write_text(message, encoding="utf-8")
             await self._run_cmd(f"tmux load-buffer -t {TMUX_SESSION_NAME} {tmp_file}")
             await self._run_cmd(f"tmux paste-buffer -t {TMUX_SESSION_NAME}")
+            # Codex TUI swallows the first Enter right after a bracketed paste
+            # (the close sequence races the keystroke). A short delay before
+            # Enter reliably submits for both Claude and Codex.
+            await asyncio.sleep(0.2)
             await self._run_cmd(f"tmux send-keys -t {TMUX_SESSION_NAME} Enter")
         finally:
             tmp_file.unlink(missing_ok=True)
