@@ -220,20 +220,20 @@ def _summarize_tool_input(tool_name: str, inp: dict) -> str:
         return str(inp)[:100]
 
     if tool_name in ("Read", "read"):
-        return inp.get("file_path", "")[:100]
+        return (inp.get("file_path") or "")[:100]
     if tool_name in ("Edit", "edit"):
-        path = inp.get("file_path", "")
-        old = (inp.get("old_string", "") or "")[:50]
+        path = inp.get("file_path") or ""
+        old = (inp.get("old_string") or "")[:50]
         return f"{path} (修改: {old}...)" if old else path
     if tool_name in ("Write", "write"):
-        path = inp.get("file_path", "")
-        size = len(inp.get("content", ""))
+        path = inp.get("file_path") or ""
+        size = len(inp.get("content") or "")
         return f"{path} ({size} chars)"
     if tool_name in ("Bash", "bash"):
-        cmd = inp.get("command", "")[:150]
+        cmd = (inp.get("command") or "")[:150]
         return cmd
     if tool_name in ("Glob", "glob"):
-        return inp.get("pattern", "")
+        return inp.get("pattern") or ""
     if tool_name in ("Grep", "grep"):
         return f"pattern={inp.get('pattern', '')} path={inp.get('path', '')}"
 

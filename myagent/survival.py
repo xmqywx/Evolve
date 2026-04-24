@@ -408,7 +408,7 @@ class SurvivalEngine:
 
         profile_lines = []
         for d in profile[:5]:
-            profile_lines.append(f"  - [{d.get('source', '')}] {d.get('content', '')[:150]}")
+            profile_lines.append(f"  - [{d.get('source') or ''}] {(d.get('content') or '')[:150]}")
         profile_text = "\n".join(profile_lines) if profile_lines else "  暂无数据"
 
         ws = str(self._workspace)

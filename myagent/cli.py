@@ -100,7 +100,7 @@ def main(argv: list[str] | None = None) -> None:
             resp = client.get(f"/api/tasks/{args.task_id}/logs")
             resp.raise_for_status()
             for log in resp.json():
-                print(f"  [{log.get('event_type')}] {log.get('content', '')[:120]}")
+                print(f"  [{log.get('event_type')}] {(log.get('content') or '')[:120]}")
 
         elif args.command == "status":
             resp = client.get("/api/status")

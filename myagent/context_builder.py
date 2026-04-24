@@ -128,7 +128,7 @@ class ContextBuilder:
                 if memories:
                     lines = ["## 相关记忆"]
                     for m in memories:
-                        content = m.get("content", "")[:200]
+                        content = (m.get("content") or "")[:200]
                         source = m.get("source", "")
                         lines.append(f"- [{source}] {content}")
                     sections.append("\n".join(lines))
@@ -141,7 +141,7 @@ class ContextBuilder:
             if insights:
                 lines = ["## 最近洞察"]
                 for i in insights:
-                    lines.append(f"- [{i.get('source', '')}] {i.get('content', '')[:150]}")
+                    lines.append(f"- [{i.get('source') or ''}] {(i.get('content') or '')[:150]}")
                 sections.append("\n".join(lines))
         except Exception:
             logger.debug("Failed to get profile insights for context")
