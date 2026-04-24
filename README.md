@@ -107,7 +107,7 @@ Not a one-shot script. A **continuously alive** agent:
 - **Watchdog:** Health check every 10s, auto-revival on hang
 - **Heartbeat detection:** 5min no heartbeat → gentle nudge, 15min → context-aware intervention
 - **Crash recovery:** `--resume` restart with knowledge injection, seamless continuation
-- **Web terminal:** Operate the tmux session directly from your browser
+- **Web terminal:** Operate the cmux session directly from your browser
 
 ### 5. Skills-First Workflow
 
@@ -194,10 +194,10 @@ Full i18n support with **Chinese** and **English** — 450+ translation keys. Sw
 │                                                              │
 │  ┌──────────────────────┐  ┌──────────────────────────────┐ │
 │  │   Survival Engine    │  │     Cron Scheduler           │ │
-│  │  (tmux + watchdog)   │  │  (croniter + shell exec)     │ │
+│  │  (cmux + watchdog)   │  │  (croniter + shell exec)     │ │
 │  └──────────┬───────────┘  └──────────────────────────────┘ │
 └─────────────┼────────────────────────────────────────────────┘
-              │ tmux
+              │ cmux
      ┌────────┴────────┐
      │  Claude Agent   │  ← Runs continuously, self-reports, self-decides
      └─────────────────┘
@@ -225,8 +225,8 @@ Agent works ──→ Calls Self-Report API
 |-------|-----------|
 | Backend | Python 3.12+ / FastAPI / SQLite / aiosqlite |
 | Frontend | React 19 + TypeScript + Vite + Tailwind CSS |
-| Terminal | xterm.js + tmux |
-| Agent Runtime | Claude Code (Survival Engine) |
+| Terminal | xterm.js + cmux (formerly tmux) |
+| Agent Runtime | Codex CLI (default) or Claude Code — configurable via `survival.provider` |
 | Analysis LLM | Doubao (knowledge refinement / supervisor analysis) |
 | Notifications | Feishu Bot (optional) |
 | i18n | react-i18next (zh-CN / en) |
@@ -284,7 +284,7 @@ cp config.yaml.example config.yaml
 ```
 myagent/
 ├── server.py          FastAPI server + all API endpoints
-├── survival.py        Survival engine (tmux watchdog + dynamic prompt injection)
+├── survival.py        Survival engine (cmux watchdog + dynamic prompt injection)
 ├── knowledge.py       Knowledge hub (ingest → refine → store → inject)
 ├── supervisor.py      Supervisor agent (JSONL extraction + Doubao analysis)
 ├── extensions.py      Extensions scanner (skills, MCPs, plugins)

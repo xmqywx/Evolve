@@ -88,7 +88,7 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 - **Watchdog 守护**：10 秒一次健康检查，卡死自动唤醒
 - **心跳检测**：5 分钟无心跳 → 温和提醒，15 分钟无心跳 → 上下文感知的 nudge
 - **崩溃恢复**：`--resume` 重启，从知识库注入历史经验，无缝继续
-- **Web 终端**：浏览器直接操作 tmux 会话，远程管理
+- **Web 终端**：浏览器直接操作 cmux 会话，远程管理
 
 ### 5. 能力开关 — 运行时控制 Agent 的权限
 
@@ -127,10 +127,10 @@ Agent 踩坑了（review.learned: "pkill -f 会导致系统崩溃"）
 │                                                              │
 │  ┌──────────────────────┐  ┌──────────────────────────────┐ │
 │  │   Survival Engine    │  │     Cron Scheduler           │ │
-│  │  (tmux + watchdog)   │  │  (croniter + shell exec)     │ │
+│  │  (cmux + watchdog)   │  │  (croniter + shell exec)     │ │
 │  └──────────┬───────────┘  └──────────────────────────────┘ │
 └─────────────┼────────────────────────────────────────────────┘
-              │ tmux
+              │ cmux
      ┌────────┴────────┐
      │  Claude Agent   │  ← 持续运行，主动汇报，自主决策
      └─────────────────┘
@@ -159,8 +159,8 @@ Claude 做事 ──→ 调 Self-Report API 汇报
 |---|---|
 | 后端 | Python 3.12+ / FastAPI / SQLite / aiosqlite |
 | 前端 | React + TypeScript + Vite + Tailwind CSS |
-| 终端 | xterm.js + tmux |
-| AI 执行 | Claude Code (生存引擎) |
+| 终端 | xterm.js + cmux（从 tmux 迁移） |
+| AI 执行 | Codex CLI（默认）或 Claude Code，通过 `survival.provider` 配置 |
 | AI 分析 | Doubao (知识提炼 / 监督分析) |
 | 通知 | 飞书 Bot (可选) |
 
@@ -205,7 +205,7 @@ cp config.yaml.example config.yaml
 ```
 myagent/
 ├── server.py          FastAPI 主服务 + 全部 API
-├── survival.py        生存引擎（tmux 守护 + prompt 动态注入）
+├── survival.py        生存引擎（cmux 守护 + prompt 动态注入）
 ├── knowledge.py       知识中枢（采集 → 豆包提炼 → 分层存储 → prompt 注入）
 ├── supervisor.py      监督 Agent（JSONL 提取 + 豆包分析）
 ├── cron_scheduler.py  定时任务调度器（croniter + asyncio）
