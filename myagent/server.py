@@ -1412,56 +1412,16 @@ async def create_app(config_path: str) -> FastAPI:
 
     @app.post("/api/survival/open-cmux", dependencies=[Depends(verify_auth)])
     async def open_survival_in_cmux():
-        """Open survival tmux session in a native cmux workspace."""
+        """Focus the existing cmux workspace (created by start). The workspace
+        hosts the AI CLI directly — no tmux attach indirection."""
         cmux_bin = "/Applications/cmux.app/Contents/Resources/bin/cmux"
         if not os.path.exists(cmux_bin):
             raise HTTPException(status_code=404, detail="cmux not installed")
 
-        async def _cmux(*args: str) -> tuple[int, str]:
-            p = await asyncio.create_subprocess_exec(
-                cmux_bin, *args,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            out, err = await p.communicate()
-            return p.returncode, (out or err).decode().strip()
+        status = await survival_engine.get_status()
+        if not status.get("running"):
+            return {"status": "not_running"}
 
-        # Close all existing 生存引擎 workspaces to avoid stale tmux clients
-        rc, ws_list = await _cmux("list-workspaces")
-        if rc == 0:
-            for line in ws_list.splitlines():
-                if "生存引擎" in line:
-                    for part in line.strip().split():
-                        if part.startswith("workspace:"):
-                            await _cmux("close-workspace", "--workspace", part)
-                            break
-
-        # Detach all existing tmux clients from survival before opening cmux
-        async def _sh(cmd: str) -> None:
-            await (await asyncio.create_subprocess_shell(cmd)).communicate()
-
-        # Detach all tmux clients and set window to use largest client size
-        await _sh("tmux list-clients -t survival -F '#{client_name}' "
-                   "| xargs -I{} tmux detach-client -t {} 2>/dev/null")
-        await asyncio.sleep(0.3)
-
-        # Set window-size to manual so we can force resize after attach
-        await _sh("tmux set-option -t survival window-size manual 2>/dev/null")
-        await _sh("tmux set-hook -t survival client-attached "
-                   "'resize-window -t survival -A' 2>/dev/null")
-
-        rc, output = await _cmux(
-            "new-workspace", "--name", "生存引擎",
-            "--command", "exec tmux attach-session -t survival",
-        )
-        if rc != 0:
-            return {"status": "error", "error": output}
-
-        # Give tmux a moment to attach, then force resize
-        await asyncio.sleep(0.5)
-        await _sh("tmux resize-window -t survival -A 2>/dev/null")
-
-        # Bring cmux to front
         await asyncio.create_subprocess_exec(
             "osascript", "-e", 'tell application "cmux" to activate',
         )

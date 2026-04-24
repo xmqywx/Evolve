@@ -9,6 +9,7 @@ interface EngineStatus {
   current_command: string;
   session_name: string;
   provider?: string;
+  cmux_workspace_id?: string | null;
   claude_session_id: string | null;
   ai_session_id?: string | null;
   restart_count: number;
@@ -99,7 +100,11 @@ export default function SurvivalPage() {
               textTransform: 'uppercase', letterSpacing: 0.5,
             }}>{status.provider}</span>
           )}
-          {status?.pid && <span style={{ fontSize: 11, color: '#8b949e' }}>PID: {status.pid}</span>}
+          {status?.cmux_workspace_id && (
+            <span style={{ fontSize: 11, color: '#8b949e' }} title={status.cmux_workspace_id}>
+              ws: {status.cmux_workspace_id.slice(0, 8)}
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <label style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#8b949e', cursor: 'pointer' }} title={t('survival.watchdog')}>

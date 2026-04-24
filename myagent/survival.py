@@ -1,7 +1,7 @@
-"""SurvivalEngine v6 - heartbeat-aware autonomous Claude agent supervisor.
+"""SurvivalEngine v7 - heartbeat-aware autonomous AI agent supervisor.
 
 Architecture:
-  - Claude runs in a tmux session, fully interactive
+  - AI CLI (Claude or Codex) runs inside a cmux workspace, fully interactive
   - Agent self-reports via heartbeat API (primary detection)
   - capture-pane as fallback when heartbeat not available
   - Context-aware nudge messages based on DB state
@@ -14,7 +14,6 @@ import asyncio
 import json
 import logging
 import os
-import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Awaitable
@@ -26,7 +25,8 @@ from myagent.feishu import FeishuClient
 
 logger = logging.getLogger(__name__)
 
-TMUX_SESSION_NAME = "survival"
+CMUX_BIN = "/Applications/cmux.app/Contents/Resources/bin/cmux"
+CMUX_WORKSPACE_NAME = "生存引擎"
 WATCHDOG_INTERVAL = 10  # seconds between health checks
 HEARTBEAT_NORMAL_TIMEOUT = 300  # 5 min - normal
 HEARTBEAT_WARN_TIMEOUT = 600  # 10 min - warn, gentle nudge
@@ -70,6 +70,8 @@ class SurvivalEngine:
             provider = ClaudeTmuxProvider(claude_settings)
         self._provider = provider
         self._session_file = self._workspace / provider.session_file_name
+        self._workspace_id_file = self._workspace / ".cmux_workspace_id"
+        self._cmux_workspace_id: str | None = None
         self._restart_count = 0
         self._claude_session_id: str | None = None  # kept for backwards-compat
         self._ai_session_id: str | None = None
@@ -78,17 +80,19 @@ class SurvivalEngine:
         self._workspace.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # Tmux helpers
+    # cmux helpers
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _tmux_available() -> bool:
-        return shutil.which("tmux") is not None
+    def _cmux_available() -> bool:
+        from pathlib import Path as _P
+        return _P(CMUX_BIN).exists()
 
     @staticmethod
-    async def _run_cmd(cmd: str) -> tuple[int, str]:
-        proc = await asyncio.create_subprocess_shell(
-            cmd,
+    async def _run_exec(*args: str) -> tuple[int, str]:
+        """Run a subprocess with raw argv, no shell interpolation."""
+        proc = await asyncio.create_subprocess_exec(
+            *args,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
@@ -98,29 +102,50 @@ class SurvivalEngine:
             output += "\n" + stderr.decode("utf-8", errors="replace").strip()
         return proc.returncode or 0, output
 
-    async def _tmux_session_exists(self) -> bool:
-        code, _ = await self._run_cmd(f"tmux has-session -t {TMUX_SESSION_NAME} 2>/dev/null")
-        return code == 0
+    async def _cmux(self, *args: str) -> tuple[int, str]:
+        return await self._run_exec(CMUX_BIN, *args)
 
-    async def _tmux_get_pane_pid(self) -> int | None:
-        code, output = await self._run_cmd(
-            f"tmux list-panes -t {TMUX_SESSION_NAME} -F '#{{pane_pid}}' 2>/dev/null"
-        )
-        if code == 0 and output.strip().isdigit():
-            return int(output.strip())
+    async def _cmux_find_workspace_uuid_by_name(self, name: str) -> str | None:
+        code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
+        if code != 0:
+            return None
+        for line in out.splitlines():
+            parts = line.strip().split(None, 1)
+            if len(parts) == 2 and parts[1].strip() == name:
+                return parts[0]
         return None
 
-    async def _tmux_get_current_command(self) -> str:
-        _, output = await self._run_cmd(
-            f"tmux list-panes -t {TMUX_SESSION_NAME} -F '#{{pane_current_command}}' 2>/dev/null"
-        )
-        return output.strip()
+    async def _cmux_workspace_exists(self) -> bool:
+        if not self._cmux_workspace_id:
+            return False
+        code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
+        if code != 0:
+            return False
+        return any(line.strip().startswith(self._cmux_workspace_id) for line in out.splitlines())
 
-    async def _tmux_capture_pane(self) -> str:
-        _, output = await self._run_cmd(
-            f"tmux capture-pane -t {TMUX_SESSION_NAME} -p 2>/dev/null"
-        )
-        return output.strip()
+    async def _cmux_capture_pane(self) -> str:
+        if not self._cmux_workspace_id:
+            return ""
+        _, out = await self._cmux("capture-pane", "--workspace", self._cmux_workspace_id)
+        return out.strip()
+
+    async def _cmux_focus_app(self) -> None:
+        await self._run_exec("osascript", "-e", 'tell application "cmux" to activate')
+
+    def _load_workspace_id(self) -> str | None:
+        if self._workspace_id_file.exists():
+            wid = self._workspace_id_file.read_text().strip()
+            if wid:
+                return wid
+        return None
+
+    def _save_workspace_id(self, wid: str) -> None:
+        self._workspace_id_file.write_text(wid)
+        self._cmux_workspace_id = wid
+
+    def _clear_workspace_id(self) -> None:
+        self._cmux_workspace_id = None
+        self._workspace_id_file.unlink(missing_ok=True)
 
     # ------------------------------------------------------------------
     # Session ID persistence
@@ -613,49 +638,30 @@ class SurvivalEngine:
     # ------------------------------------------------------------------
 
     async def start(self) -> dict:
-        if not self._tmux_available():
-            return {"status": "error", "error": "tmux not installed (brew install tmux)"}
+        if not self._cmux_available():
+            return {"status": "error", "error": "cmux not installed (install cmux.app)"}
 
-        if await self._tmux_session_exists():
-            current_cmd = await self._tmux_get_current_command()
-            idle_shells = {"zsh", "bash", "sh", "fish"}
-            if current_cmd and current_cmd.lower() not in idle_shells:
-                return {"status": "already_running"}
-            # tmux session exists but Claude is not running — recycle it
-            await self._log("start", f"tmux 会话存在但 Claude 未运行 (当前: {current_cmd})，回收重建")
-            await self._run_cmd(f"tmux kill-session -t {TMUX_SESSION_NAME}")
+        # Check if our tracked workspace still exists; if so, treat as already running.
+        self._cmux_workspace_id = self._load_workspace_id()
+        if self._cmux_workspace_id and await self._cmux_workspace_exists():
+            await self._cmux_focus_app()
+            return {"status": "already_running"}
+
+        # Stale workspace id — clear and recreate.
+        if self._cmux_workspace_id:
+            await self._log("start", "cmux workspace 丢失，重建")
+            self._clear_workspace_id()
+
+        # Defensive: close any lingering workspaces with our name from previous runs.
+        code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
+        if code == 0:
+            for line in out.splitlines():
+                parts = line.strip().split(None, 1)
+                if len(parts) == 2 and parts[1].strip() == CMUX_WORKSPACE_NAME:
+                    await self._cmux("close-workspace", "--workspace", parts[0])
 
         self._claude_session_id = self._load_claude_session_id()
         self._ai_session_id = self._claude_session_id
-
-        code, output = await self._run_cmd(
-            f'tmux new-session -d -s {TMUX_SESSION_NAME}'
-        )
-        if code != 0:
-            await self._log("error", f"tmux 启动失败: {output}")
-            return {"status": "error", "error": output}
-
-        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} window-size largest")
-        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} aggressive-resize on")
-        await self._run_cmd(f"tmux set-option -t {TMUX_SESSION_NAME} mouse on")
-        await self._run_cmd(f"tmux set -g allow-passthrough on")
-
-        await self._run_cmd(
-            f'tmux send-keys -t {TMUX_SESSION_NAME} "unset CLAUDECODE" Enter'
-        )
-        if self._server_secret:
-            await self._run_cmd(
-                f'tmux send-keys -t {TMUX_SESSION_NAME} '
-                f'"export MYAGENT_TOKEN={self._server_secret}" Enter'
-            )
-        await self._run_cmd(
-            f'tmux send-keys -t {TMUX_SESSION_NAME} '
-            f'"export MYAGENT_URL=http://localhost:{self._server_port}" Enter'
-        )
-        await self._run_cmd(
-            f'tmux send-keys -t {TMUX_SESSION_NAME} "cd {self._workspace}" Enter'
-        )
-        await asyncio.sleep(0.5)
 
         launch = self._provider.build_launch(self._ai_session_id)
         if launch.is_resume:
@@ -663,15 +669,38 @@ class SurvivalEngine:
         else:
             await self._log("start", f"[{self._provider.name}] 首次启动生存引擎")
 
-        # Escape any double-quotes in the command so tmux send-keys parses it safely.
-        safe_cmd = launch.cmd.replace('"', '\\"')
-        await self._run_cmd(
-            f'tmux send-keys -t {TMUX_SESSION_NAME} "{safe_cmd}" Enter'
+        # Build a shell one-liner that exports env vars and execs the AI CLI.
+        # cmux --command types this + Enter into the workspace's default shell.
+        exports = [
+            "unset CLAUDECODE",
+            f"export MYAGENT_URL=http://localhost:{self._server_port}",
+        ]
+        if self._server_secret:
+            exports.append(f"export MYAGENT_TOKEN={self._server_secret}")
+        shell_cmd = "; ".join(exports) + f"; exec {launch.cmd}"
+
+        code, out = await self._cmux(
+            "new-workspace",
+            "--name", CMUX_WORKSPACE_NAME,
+            "--cwd", str(self._workspace),
+            "--command", shell_cmd,
         )
+        if code != 0:
+            await self._log("error", f"cmux 启动失败: {out}")
+            return {"status": "error", "error": out}
+
+        # Resolve UUID by name for stable tracking across restarts.
+        await asyncio.sleep(0.4)
+        uuid = await self._cmux_find_workspace_uuid_by_name(CMUX_WORKSPACE_NAME)
+        if not uuid:
+            await self._log("error", f"cmux workspace 创建后未找到 UUID (output: {out})")
+            return {"status": "error", "error": "workspace uuid not found"}
+        self._save_workspace_id(uuid)
 
         self._restart_count += 1
         self._nudge_count = 0
-        await self._log("start", f"tmux 会话已启动 (第 {self._restart_count} 次)")
+        await self._log("start", f"cmux workspace 已启动 {uuid[:8]} (第 {self._restart_count} 次)")
+        await self._cmux_focus_app()
 
         # Send identity or recovery prompt
         await asyncio.sleep(5)
@@ -700,56 +729,59 @@ class SurvivalEngine:
         return {"status": "started", "restart_count": self._restart_count}
 
     async def stop(self) -> dict:
-        if not await self._tmux_session_exists():
+        wid = self._cmux_workspace_id or self._load_workspace_id()
+        if not wid:
             return {"status": "not_running"}
 
-        code, output = await self._run_cmd(f"tmux kill-session -t {TMUX_SESSION_NAME}")
+        code, output = await self._cmux("close-workspace", "--workspace", wid)
+        self._clear_workspace_id()
         self._running = False
         await self._log("stop", "生存引擎已停止")
         return {"status": "stopped" if code == 0 else "error", "output": output}
 
     async def interrupt(self) -> dict:
-        if not await self._tmux_session_exists():
+        wid = self._cmux_workspace_id or self._load_workspace_id()
+        if not wid:
             return {"status": "not_running"}
-
-        code, _ = await self._run_cmd(f"tmux send-keys -t {TMUX_SESSION_NAME} C-c")
+        code, _ = await self._cmux("send-key", "--workspace", wid, "C-c")
         await self._log("interrupt", "已发送 Ctrl+C 打断")
         return {"status": "interrupted" if code == 0 else "error"}
 
     async def send_message(self, message: str) -> dict:
-        if not await self._tmux_session_exists():
+        wid = self._cmux_workspace_id or self._load_workspace_id()
+        if not wid:
             return {"status": "not_running"}
 
-        tmp_file = self._workspace / ".tmp_message"
-        try:
-            tmp_file.write_text(message, encoding="utf-8")
-            await self._run_cmd(f"tmux load-buffer -t {TMUX_SESSION_NAME} {tmp_file}")
-            await self._run_cmd(f"tmux paste-buffer -t {TMUX_SESSION_NAME}")
-            # Codex TUI swallows the first Enter right after a bracketed paste
-            # (the close sequence races the keystroke). A short delay before
-            # Enter reliably submits for both Claude and Codex.
-            await asyncio.sleep(0.2)
-            await self._run_cmd(f"tmux send-keys -t {TMUX_SESSION_NAME} Enter")
-        finally:
-            tmp_file.unlink(missing_ok=True)
+        # cmux `send` pastes text directly; then a short delay before Enter so
+        # the TUI (Claude or Codex) commits the paste before the keystroke.
+        code, out = await self._cmux("send", "--workspace", wid, message)
+        if code != 0:
+            return {"status": "error", "error": out}
+        await asyncio.sleep(0.2)
+        await self._cmux("send-key", "--workspace", wid, "Enter")
 
         await self._log("inject", f"已发送消息: {message[:100]}")
         return {"status": "sent"}
 
     async def get_status(self) -> dict:
-        exists = await self._tmux_session_exists()
-        pid = await self._tmux_get_pane_pid() if exists else None
-        cmd = await self._tmux_get_current_command() if exists else ""
+        exists = await self._cmux_workspace_exists()
+        # Reconnect to a persisted workspace id if we forgot but it's still alive.
+        if not exists and self._load_workspace_id():
+            self._cmux_workspace_id = self._load_workspace_id()
+            exists = await self._cmux_workspace_exists()
+            if not exists:
+                self._clear_workspace_id()
 
         hb = await self._db.get_latest_heartbeat()
         hb_age = await self._get_heartbeat_age_secs()
 
         return {
             "running": exists,
-            "pid": pid,
-            "current_command": cmd,
-            "session_name": TMUX_SESSION_NAME,
+            "pid": None,
+            "current_command": "",
+            "session_name": CMUX_WORKSPACE_NAME,
             "provider": self._provider.name,
+            "cmux_workspace_id": self._cmux_workspace_id,
             "claude_session_id": self._claude_session_id,
             "ai_session_id": self._ai_session_id,
             "restart_count": self._restart_count,
@@ -782,19 +814,13 @@ class SurvivalEngine:
                 break
 
             try:
-                # Check tmux alive AND Claude running
+                # Check cmux workspace alive; cmux closes the workspace if the
+                # launched process exits, so workspace presence is our signal.
                 needs_restart = False
-                if not await self._tmux_session_exists():
-                    logger.warning("Survival tmux session died, restarting...")
-                    await self._log("watchdog", "检测到 tmux 会话死亡，正在重启...")
+                if not await self._cmux_workspace_exists():
+                    logger.warning("Survival cmux workspace gone, restarting...")
+                    await self._log("watchdog", "检测到 cmux workspace 丢失，正在重启...")
                     needs_restart = True
-                else:
-                    current_cmd = await self._tmux_get_current_command()
-                    idle_shells = {"zsh", "bash", "sh", "fish"}
-                    if current_cmd and current_cmd.lower() in idle_shells:
-                        logger.warning("Claude not running in survival session (got: %s), restarting...", current_cmd)
-                        await self._log("watchdog", f"Claude 未运行 (当前: {current_cmd})，正在重启...")
-                        needs_restart = True
 
                 if needs_restart:
                     await asyncio.sleep(2)
@@ -833,7 +859,7 @@ class SurvivalEngine:
                             self._nudge_count = 2
                 else:
                     # No heartbeat ever - fallback to capture-pane
-                    current_content = await self._tmux_capture_pane()
+                    current_content = await self._cmux_capture_pane()
                     if current_content == self._last_pane_content:
                         self._unchanged_ticks += 1
                     else:
@@ -866,17 +892,19 @@ class SurvivalEngine:
     # ------------------------------------------------------------------
 
     async def discover_session_id(self, scanner_sessions: list) -> str | None:
-        # Claude: match tmux pane pid against scanner-tracked sessions.
+        # Claude: match scanner sessions by cwd (pane pid no longer exposed).
         if self._provider.name == "claude":
-            pid = await self._tmux_get_pane_pid()
-            if not pid:
-                return None
-            for s in scanner_sessions:
-                if s.get("pid") == pid:
-                    sid = s.get("id") or s.get("session_id")
-                    if sid:
-                        self._save_claude_session_id(sid)
-                        return sid
+            workspace_str = str(self._workspace)
+            candidates = [
+                s for s in scanner_sessions
+                if (s.get("cwd") or "").rstrip("/") == workspace_str.rstrip("/")
+            ]
+            candidates.sort(key=lambda s: s.get("last_message_at") or s.get("updated_at") or "", reverse=True)
+            for s in candidates:
+                sid = s.get("id") or s.get("session_id")
+                if sid:
+                    self._save_claude_session_id(sid)
+                    return sid
             return None
 
         # Codex: pick the newest rollout file whose cwd equals our workspace.
