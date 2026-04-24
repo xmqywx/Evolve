@@ -67,9 +67,11 @@ Task 10 is the hygiene fix for the accidentally-committed `myagent.log`.
 
 Run:
 ```bash
-cd /Users/ying/Documents/MyAgent && rg -c "tmux" --type md --type py --type ts --type tsx | wc -l
+cd /Users/ying/Documents/MyAgent
+echo "docs hits:"; rg "tmux" -g '*.md' | wc -l
+echo "code hits:"; rg "tmux" -g '*.py' -g '*.ts' -g '*.tsx' -g '*.js' | wc -l
 ```
-Record the number. If >20 hits, the Task 9 budget may overflow — note this for Task 9 stop-loss rule.
+Record both numbers (total match count, not file count). If docs hits >20, Task 9 will apply stop-loss per spec §7.
 
 - [ ] **Step 1.2: Pre-flight audit — read 4 old specs skimmed**
 
@@ -95,8 +97,8 @@ Cap: ≤400 lines. Diagrams are mandatory (per spec step 1 acceptance).
 Run:
 ```bash
 wc -l docs/ARCHITECTURE.md
-grep -c "^##" docs/ARCHITECTURE.md
-grep -c "mermaid" docs/ARCHITECTURE.md
+grep -cE "^##" docs/ARCHITECTURE.md
+grep -cE "mermaid" docs/ARCHITECTURE.md
 ```
 Expected: line count ≤400; ≥5 `##` headers; ≥2 mermaid blocks.
 
@@ -198,10 +200,12 @@ Cap: ≤600 lines. Check `wc -l` at end.
 Run:
 ```bash
 wc -l docs/OVERVIEW.md
-grep -c "bus\|总线" docs/OVERVIEW.md
-grep -c "multi-digital-human\|多数字人" docs/OVERVIEW.md
+grep -cE "bus|总线" docs/OVERVIEW.md
+grep -cE "multi-digital-human|多数字人" docs/OVERVIEW.md
 ```
 Expected: line count ≤600; ≥3 bus/总线 hits; ≥1 multi-digital-human hit.
+
+Note: use `grep -cE` (ERE), not `-c` (BSD grep on macOS treats `\|` as literal).
 
 - [ ] **Step 3.5: If over 600 lines — apply stop-loss from spec §7**
 
@@ -249,17 +253,29 @@ Do NOT delete existing content.
 
 Run:
 ```bash
-for f in docs/specs/2026-03-1[0145]-*.md; do
-  echo "--- $f ---"
-  head -5 "$f" | grep -c "Superseded"
+setopt +o nomatch 2>/dev/null  # zsh: allow glob without match error
+for f in docs/specs/2026-03-10-session-monitor-design.md \
+         docs/specs/2026-03-11-chat-survival-system-design.md \
+         docs/specs/2026-03-13-myagent-v2-design.md \
+         docs/specs/2026-03-14-workflow-v2-design.md \
+         docs/specs/2026-03-15-knowledge-hub-design.md; do
+  if head -5 "$f" | grep -q "Superseded"; then
+    echo "OK: $f"
+  else
+    echo "MISSING: $f"
+  fi
 done
 ```
-Expected: each file returns `1`.
+Expected: 5 × "OK:" lines, no "MISSING:" lines.
 
 - [ ] **Step 4.4: Commit**
 
 ```bash
-git add docs/specs/2026-03-1[0145]-*.md
+git add docs/specs/2026-03-10-session-monitor-design.md \
+        docs/specs/2026-03-11-chat-survival-system-design.md \
+        docs/specs/2026-03-13-myagent-v2-design.md \
+        docs/specs/2026-03-14-workflow-v2-design.md \
+        docs/specs/2026-03-15-knowledge-hub-design.md
 git commit -m "docs: add superseded banners to old specs (stabilization step 2b)"
 git push
 ```
@@ -282,7 +298,7 @@ Quick reference checks:
 ```bash
 ls web/src/pages/ 2>/dev/null
 rg -l "tailwind" web/ 2>/dev/null | head -5
-rg -l "heartbeat\|deliverable\|discovery" myagent/ 2>/dev/null | head -5
+rg -l "heartbeat|deliverable|discovery" myagent/ 2>/dev/null | head -5
 rg -l "chokidar" myagent/ web/ 2>/dev/null
 ```
 
@@ -304,7 +320,7 @@ Include a top-level summary line: "Overall V2 completion: N/5 phases done, M par
 
 Run:
 ```bash
-grep -c "^## Phase" docs/PROGRESS.md
+grep -cE "^## Phase" docs/PROGRESS.md
 grep -cE "✅|🚧|⬜" docs/PROGRESS.md
 ```
 Expected: 5 phases; ≥5 status markers.
@@ -329,7 +345,7 @@ git push
 Run:
 ```bash
 mkdir -p docs/decisions
-rg -l "postgres" --type py --type yaml --type md
+rg -il "postgres" -g '*.py' -g '*.yaml' -g '*.yml' -g '*.md'
 ```
 Record which files mention postgres.
 
@@ -514,10 +530,11 @@ git push
 Run:
 ```bash
 cd /Users/ying/Documents/MyAgent
-rg "tmux" --type md > /tmp/tmux-docs.txt
-rg "tmux" --type py --type ts --type tsx > /tmp/tmux-code.txt
+rg "tmux" -g '*.md' > /tmp/tmux-docs.txt || true
+rg "tmux" -g '*.py' -g '*.ts' -g '*.tsx' -g '*.js' > /tmp/tmux-code.txt || true
 wc -l /tmp/tmux-docs.txt /tmp/tmux-code.txt
 ```
+Note: `|| true` prevents rg's exit-code-1 (no matches) from breaking the pipeline.
 
 - [ ] **Step 9.2: Apply stop-loss rule**
 
@@ -534,19 +551,22 @@ For each file in `/tmp/tmux-docs.txt`, locate the line and add an inline parenth
 
 Run:
 ```bash
-rg -B 1 -A 1 "tmux" --type md | grep -iE "legacy|migrated|formerly|historical|deferred" | wc -l
+rg -B 1 -A 1 "tmux" -g '*.md' | grep -iE "legacy|migrated|formerly|historical|deferred" | wc -l
 ```
 Expected: approximately equal to total docs hits (each site has contextual qualifier nearby).
 
 - [ ] **Step 9.5: Commit**
 
 ```bash
-git add -A  # Specific: docs/*.md and PROGRESS.md only
+# Explicit paths only — never `git add -A` or `git add .`
+# Confirm nothing outside docs/ is staged:
+git status --short | grep -v "^.. docs/" && echo "WARN: non-docs files modified, review before commit" || true
+git add docs/PROGRESS.md  # in case Task 9.2 appended catalog
+git add docs/  # then the rest of docs/
+git diff --cached --name-only | grep -E '\.(py|ts|tsx|js|sql|yaml)$' && echo "ABORT: code/config file staged" && exit 1 || true
 git commit -m "docs: audit and annotate tmux residuals, catalog code residuals (stabilization step 8)"
 git push
 ```
-
-> **WARNING:** Use `git add` with specific paths in step 9.5 to avoid re-committing `myagent.log`. Explicit paths: `git add docs/ CLAUDE.md persona/`.
 
 ---
 
@@ -567,10 +587,11 @@ cat .gitignore 2>/dev/null
 
 Run:
 ```bash
-git rm --cached myagent.log
-echo "myagent.log" >> .gitignore
-echo "*.log" >> .gitignore
+git rm --cached myagent.log 2>/dev/null || true
+grep -qxF "myagent.log" .gitignore 2>/dev/null || echo "myagent.log" >> .gitignore
+grep -qxF "*.log" .gitignore 2>/dev/null || echo "*.log" >> .gitignore
 ```
+(Guards prevent duplicate entries and handle missing .gitignore.)
 
 - [ ] **Step 10.3: Verify**
 
@@ -595,35 +616,47 @@ git push
 
 After Task 10, verify end-state matches spec §2.1 goals:
 
-- [ ] **A1**: Every old spec has status banner as first non-title line
+- [ ] **A1**: Every old spec has status banner
   ```bash
-  for f in docs/specs/2026-03-1[0145]-*.md; do head -5 "$f" | grep -l "Superseded" > /dev/null || echo "MISSING: $f"; done
+  for f in docs/specs/2026-03-10-session-monitor-design.md \
+           docs/specs/2026-03-11-chat-survival-system-design.md \
+           docs/specs/2026-03-13-myagent-v2-design.md \
+           docs/specs/2026-03-14-workflow-v2-design.md \
+           docs/specs/2026-03-15-knowledge-hub-design.md; do
+    head -5 "$f" | grep -q "Superseded" || echo "MISSING: $f"
+  done
   ```
-- [ ] **A2**: ARCHITECTURE.md exists and has vocabulary + diagrams
+  Expected: no "MISSING:" output.
+- [ ] **A2**: ARCHITECTURE.md exists with diagrams
   ```bash
-  test -f docs/ARCHITECTURE.md && grep -c "mermaid" docs/ARCHITECTURE.md
+  test -f docs/ARCHITECTURE.md && grep -cE "mermaid" docs/ARCHITECTURE.md
   ```
+  Expected: ≥2.
 - [ ] **A3**: PROGRESS.md has all 5 phases with status
   ```bash
-  grep -c "^## Phase" docs/PROGRESS.md  # expect 5
+  grep -cE "^## Phase" docs/PROGRESS.md
   ```
+  Expected: 5.
 - [ ] **A4**: Both ADRs exist
   ```bash
-  ls docs/decisions/2026-04-24-*.md | wc -l  # expect 2
+  ls docs/decisions/2026-04-24-*.md 2>/dev/null | wc -l
   ```
+  Expected: 2.
 - [ ] **A5**: `CLAUDE.md` no longer lists tmux/Ant Design without qualifier
   ```bash
-  grep -E "tmux|Ant Design" CLAUDE.md | grep -vE "formerly|migrating"  # expect no output
+  grep -E "tmux|Ant Design" CLAUDE.md | grep -vE "formerly|migrating"
   ```
-- [ ] **A6**: `persona/knowledge.md` and `persona/principles.md` have no TODO
+  Expected: no output.
+- [ ] **A6**: `persona/knowledge.md` and `persona/principles.md` have no TODO placeholders
   ```bash
-  grep -iE "to be filled|todo|tbd" persona/knowledge.md persona/principles.md  # expect no output
+  grep -iE "to be filled|\(tbd\)|^todo" persona/knowledge.md persona/principles.md
   ```
+  Expected: no output. (Narrowed regex to avoid false-positives on legitimate "todo" word usage.)
 - [ ] **A7**: OVERVIEW.md ≤ 600 lines and mentions bus + multi-digital-human
   ```bash
   wc -l docs/OVERVIEW.md
-  grep -c "bus\|总线" docs/OVERVIEW.md
-  grep -c "multi-digital-human\|多数字人" docs/OVERVIEW.md
+  grep -cE "bus|总线" docs/OVERVIEW.md
+  grep -cE "multi-digital-human|多数字人" docs/OVERVIEW.md
   ```
 
 If all pass, post-sprint status:
@@ -633,11 +666,16 @@ If all pass, post-sprint status:
 
 ## Non-goals enforcement (re-check before each commit)
 
-For each commit in this plan, mentally verify:
-- [ ] No `.py` / `.ts` / `.tsx` / `.js` / `.sql` file in the diff
-- [ ] `config.yaml` not touched
-- [ ] `agents/` directory not renamed
-- [ ] `digital_humans/` directory not created
-- [ ] Old spec files: only banner added, body unchanged
+**Automated check — run before every commit:**
 
-If any violation — stop, revert, reconsider.
+```bash
+git diff --cached --name-only | grep -E '\.(py|ts|tsx|js|sql)$' && echo "ABORT: code file staged" && exit 1 || echo "OK: no code files"
+git diff --cached --name-only | grep -E '^config\.yaml$|^schema\.sql$' && echo "ABORT: config/schema staged" && exit 1 || echo "OK: no config"
+git diff --cached --stat | grep -E '^ agents/.+=>' && echo "ABORT: agents/ rename" && exit 1 || echo "OK: no rename"
+test -d digital_humans && echo "ABORT: digital_humans/ was created" && exit 1 || echo "OK: no digital_humans dir"
+```
+
+Also manually verify for each commit:
+- [ ] Old spec files: only banner added, body unchanged (visual diff review)
+
+If any automated check fires "ABORT" — stop, `git reset HEAD`, reconsider.
