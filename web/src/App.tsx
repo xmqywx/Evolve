@@ -18,6 +18,7 @@ import ExtensionsPage from './pages/Extensions';
 import SettingsPage from './pages/Settings';
 import DigitalHumansPage from './pages/DigitalHumans';
 import DiscoveriesPage from './pages/Discoveries';
+import IdentityPromptsPage from './pages/IdentityPrompts';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -44,6 +45,7 @@ export default function App() {
         <Route path="extensions" element={<ExtensionsPage />} />
         <Route path="digital_humans" element={<DigitalHumansPage />} />
         <Route path="discoveries" element={<DiscoveriesPage />} />
+        <Route path="identity_prompts" element={<IdentityPromptsPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

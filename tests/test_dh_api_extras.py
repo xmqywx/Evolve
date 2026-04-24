@@ -116,6 +116,54 @@ async def test_persona_unknown_dh_404(client):
     assert r.status_code == 404
 
 
+# ---- PUT /api/digital_humans/{id}/persona/{filename} ----
+
+
+@pytest.mark.asyncio
+async def test_put_persona_writes_file(client, config_with_dhs):
+    r = await client.put(
+        "/api/digital_humans/observer/persona/knowledge.md",
+        json={"content": "# new content\nhello"},
+    )
+    assert r.status_code == 200
+    data = r.json()
+    assert data["status"] == "ok"
+    assert data["digital_human_id"] == "observer"
+    assert data["size"] > 0
+
+    # Read back via GET
+    r2 = await client.get("/api/digital_humans/observer/persona")
+    assert r2.json()["files"]["knowledge.md"] == "# new content\nhello"
+
+
+@pytest.mark.asyncio
+async def test_put_persona_invalid_filename_400(client):
+    r = await client.put(
+        "/api/digital_humans/observer/persona/hack.sh",
+        json={"content": "rm -rf /"},
+    )
+    assert r.status_code == 400
+    assert "invalid_filename" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_put_persona_unknown_dh_404(client):
+    r = await client.put(
+        "/api/digital_humans/nobody/persona/identity.md",
+        json={"content": "x"},
+    )
+    assert r.status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_put_persona_non_string_content_400(client):
+    r = await client.put(
+        "/api/digital_humans/observer/persona/identity.md",
+        json={"content": 123},
+    )
+    assert r.status_code == 400
+
+
 # ---- /api/agent/stats ----
 
 

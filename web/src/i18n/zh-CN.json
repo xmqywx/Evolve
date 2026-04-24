@@ -3,6 +3,7 @@
     "dashboard": "控制台",
     "digitalHumans": "数字人",
     "discoveries": "发现",
+    "promptPerDH": "身份 Prompt",
     "chat": "AI 对话",
     "sessions": "会话",
     "survival": "生存引擎",
@@ -39,7 +40,33 @@
     "confirm": "确认",
     "close": "关闭",
     "copy": "复制",
-    "default": "默认"
+    "default": "默认",
+    "start": "启动",
+    "stop": "停止",
+    "restart": "重启"
+  },
+  "dh": {
+    "title": "数字人",
+    "subtitle": "共 {{count}} 个已配置的数字人",
+    "addTip": "在 config.yaml 的 digital_humans 段增加新条目并重启服务可添加更多数字人",
+    "noneConfigured": "尚未配置任何数字人",
+    "disabled": "已禁用",
+    "persona": "人格",
+    "cmux": "cmux 会话",
+    "heartbeat": "心跳：每 {{interval}} 分钟 — 最近 {{last}}",
+    "endpoints": "可用端点",
+    "restarts": "重启次数：{{n}}",
+    "lastCrash": "上次崩溃",
+    "personaPreview": "查看 persona",
+    "executorManagedNote": "Executor 由生存引擎托管（不通过本页面启停）；请在「生存引擎」页面启停"
+  },
+  "identity": {
+    "title": "身份 Prompt",
+    "subtitle": "每个数字人的 identity / knowledge / principles，每 30 分钟下一轮 context refresh 时生效，无需重启",
+    "placeholder": "（此文件为空）",
+    "chars": "字符",
+    "unsaved": "未保存",
+    "hint": "ContextBuilder 每次唤醒数字人时重读这三个文件。保存后下一轮 iteration 就会用上新内容 — 不需要重启服务或 cmux 会话"
   },
   "login": {
     "title": "MyAgent",

@@ -3,6 +3,7 @@
     "dashboard": "Dashboard",
     "digitalHumans": "Digital Humans",
     "discoveries": "Discoveries",
+    "promptPerDH": "Identity Prompt",
     "chat": "AI Chat",
     "sessions": "Sessions",
     "survival": "Survival Engine",
@@ -39,7 +40,33 @@
     "confirm": "Confirm",
     "close": "Close",
     "copy": "Copy",
-    "default": "Default"
+    "default": "Default",
+    "start": "Start",
+    "stop": "Stop",
+    "restart": "Restart"
+  },
+  "dh": {
+    "title": "Digital Humans",
+    "subtitle": "{{count}} configured digital humans",
+    "addTip": "Add more digital humans by editing the digital_humans: block in config.yaml and restarting",
+    "noneConfigured": "No digital humans configured",
+    "disabled": "disabled",
+    "persona": "persona",
+    "cmux": "cmux session",
+    "heartbeat": "heartbeat: every {{interval}}m — last {{last}}",
+    "endpoints": "endpoints",
+    "restarts": "restarts: {{n}}",
+    "lastCrash": "last crash",
+    "personaPreview": "persona preview",
+    "executorManagedNote": "Executor is managed by the Survival engine — use the Engine tab to start/stop"
+  },
+  "identity": {
+    "title": "Identity Prompt",
+    "subtitle": "Per-DH identity/knowledge/principles. Picked up at next context refresh (every 30 min) — no restart needed.",
+    "placeholder": "(file is empty)",
+    "chars": "chars",
+    "unsaved": "unsaved",
+    "hint": "ContextBuilder re-reads these three files every iteration. Saved content takes effect on the next iteration — no service/cmux restart needed"
   },
   "login": {
     "title": "MyAgent",

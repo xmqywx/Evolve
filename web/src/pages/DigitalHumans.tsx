@@ -4,9 +4,10 @@
  * S1 multi-DH roadmap, Task 12.
  */
 import { useEffect, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   RefreshCw, Power, RotateCcw, Activity,
-  ChevronDown, ChevronRight, FileText, Shield,
+  ChevronDown, ChevronRight, FileText, Shield, Plus,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
@@ -40,11 +41,11 @@ function timeAgo(iso: string | null): string {
   const then = new Date(iso).getTime();
   const diff = Date.now() - then;
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins}m ago`;
+  if (mins < 1) return '刚刚';
+  if (mins < 60) return `${mins} 分钟前`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+  if (hrs < 24) return `${hrs} 小时前`;
+  return `${Math.floor(hrs / 24)} 天前`;
 }
 
 function dotColor(last: string | null, intervalSecs: number): string {
@@ -70,6 +71,7 @@ const ENDPOINT_COLORS: Record<string, string> = {
 };
 
 export default function DigitalHumansPage() {
+  const { t } = useTranslation();
   const [dhs, setDhs] = useState<DHEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
@@ -121,18 +123,39 @@ export default function DigitalHumansPage() {
   return (
     <div className="p-6 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Digital Humans</h1>
-        <button
-          onClick={fetchDhs}
-          className="p-2 rounded hover:bg-accent"
-          aria-label="refresh"
-        >
-          <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-        </button>
+        <div>
+          <h1 className="text-xl font-semibold">{t('dh.title')}</h1>
+          <p className="text-xs mt-1" style={{ color: 'var(--text-muted)' }}>
+            {t('dh.subtitle', { count: dhs.length })}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchDhs}
+            className="p-2 rounded hover:bg-accent"
+            aria-label={t('common.refresh')}
+          >
+            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
+          </button>
+        </div>
+      </div>
+
+      {/* Helper tip on how to add a new DH */}
+      <div
+        className="flex items-start gap-2 border border-border rounded-lg p-3 text-xs"
+        style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}
+      >
+        <Plus size={14} className="mt-0.5 shrink-0" />
+        <div>
+          <div>{t('dh.addTip')}</div>
+          <code className="text-[10px]">config.yaml → digital_humans:</code>
+        </div>
       </div>
 
       {dhs.length === 0 && !loading && (
-        <div className="text-sm text-muted-foreground">No digital humans configured.</div>
+        <div className="text-sm" style={{ color: 'var(--text-muted)' }}>
+          {t('dh.noneConfigured')}
+        </div>
       )}
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -157,7 +180,7 @@ export default function DigitalHumansPage() {
                   {!dh.config.enabled && (
                     <span className="text-[10px] px-1.5 py-0.5 rounded"
                           style={{ background: 'var(--surface)', color: 'var(--text-muted)' }}>
-                      disabled
+                      {t('dh.disabled')}
                     </span>
                   )}
                 </div>
@@ -167,12 +190,17 @@ export default function DigitalHumansPage() {
               </div>
 
               <div className="text-xs space-y-1.5" style={{ color: 'var(--text-muted)' }}>
-                <div>persona: <code>{dh.config.persona_dir}</code></div>
-                <div>cmux: <code>{dh.config.cmux_session}</code></div>
-                <div>heartbeat: every {Math.round(dh.config.heartbeat_interval_secs / 60)}m — last {timeAgo(dh.state.last_heartbeat_at)}</div>
+                <div>{t('dh.persona')}: <code>{dh.config.persona_dir}</code></div>
+                <div>{t('dh.cmux')}: <code>{dh.config.cmux_session}</code></div>
+                <div>
+                  {t('dh.heartbeat', {
+                    interval: Math.round(dh.config.heartbeat_interval_secs / 60),
+                    last: timeAgo(dh.state.last_heartbeat_at),
+                  })}
+                </div>
                 <div className="flex flex-wrap gap-1 items-center">
                   <Shield size={11} />
-                  <span>endpoints:</span>
+                  <span>{t('dh.endpoints')}:</span>
                   {dh.config.endpoint_allowlist.length === 0 && <span>—</span>}
                   {dh.config.endpoint_allowlist.map((ep) => (
                     <span
@@ -187,7 +215,12 @@ export default function DigitalHumansPage() {
                     </span>
                   ))}
                 </div>
-                <div>restarts: {dh.state.restart_count}{dh.state.last_crash ? ` (last: ${dh.state.last_crash.slice(0, 80)})` : ''}</div>
+                <div>
+                  {t('dh.restarts', { n: dh.state.restart_count })}
+                  {dh.state.last_crash
+                    ? `（${t('dh.lastCrash')}: ${dh.state.last_crash.slice(0, 80)}）`
+                    : ''}
+                </div>
               </div>
 
               <button
@@ -197,7 +230,7 @@ export default function DigitalHumansPage() {
               >
                 {expanded.has(dh.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
                 <FileText size={12} />
-                persona preview
+                {t('dh.personaPreview')}
               </button>
 
               {expanded.has(dh.id) && personas[dh.id] && (
@@ -206,7 +239,7 @@ export default function DigitalHumansPage() {
                     const content = personas[dh.id].files[fn];
                     if (!content) return (
                       <div key={fn} style={{ color: 'var(--text-muted)' }}>
-                        <strong>{fn}:</strong> <em>(missing)</em>
+                        <strong>{fn}:</strong> <em>（缺失）</em>
                       </div>
                     );
                     return (
@@ -230,28 +263,27 @@ export default function DigitalHumansPage() {
                   onClick={() => action(dh.id, 'start')}
                   className="text-xs px-2 py-1 rounded border border-border disabled:opacity-50"
                 >
-                  <Power size={12} className="inline mr-1" /> Start
+                  <Power size={12} className="inline mr-1" /> {t('common.start')}
                 </button>
                 <button
                   disabled={actioning === dh.id || dh.id !== 'observer'}
                   onClick={() => action(dh.id, 'stop')}
                   className="text-xs px-2 py-1 rounded border border-border disabled:opacity-50"
                 >
-                  <Activity size={12} className="inline mr-1" /> Stop
+                  <Activity size={12} className="inline mr-1" /> {t('common.stop')}
                 </button>
                 <button
                   disabled={actioning === dh.id || dh.id !== 'observer'}
                   onClick={() => action(dh.id, 'restart')}
                   className="text-xs px-2 py-1 rounded border border-border disabled:opacity-50"
                 >
-                  <RotateCcw size={12} className="inline mr-1" /> Restart
+                  <RotateCcw size={12} className="inline mr-1" /> {t('common.restart')}
                 </button>
               </div>
 
               {dh.id === 'executor' && (
                 <div className="text-[10px]" style={{ color: 'var(--text-muted)' }}>
-                  Executor is managed by the legacy Survival engine (not via this page).
-                  Use the Engine tab to start/stop Executor.
+                  {t('dh.executorManagedNote')}
                 </div>
               )}
             </div>

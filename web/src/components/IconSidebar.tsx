@@ -34,6 +34,7 @@ interface NavItem {
 const navItems: NavItem[] = [
   { path: '/', icon: <LayoutDashboard size={20} />, labelKey: 'sidebar.dashboard' },
   { path: '/digital_humans', icon: <Users size={20} />, labelKey: 'sidebar.digitalHumans' },
+  { path: '/identity_prompts', icon: <FileEdit size={20} />, labelKey: 'sidebar.promptPerDH' },
   { path: '/discoveries', icon: <Radar size={20} />, labelKey: 'sidebar.discoveries' },
   { path: '/survival', icon: <Flame size={20} />, labelKey: 'sidebar.survival' },
   { path: '/output', icon: <Package size={20} />, labelKey: 'sidebar.output' },

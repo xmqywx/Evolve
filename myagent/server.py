@@ -826,13 +826,7 @@ async def create_app(config_path: str) -> FastAPI:
 
     @app.get("/api/digital_humans/{dh_id}/persona", dependencies=[Depends(verify_auth)])
     async def get_dh_persona(dh_id: str, request: Request):
-        """Return the composed persona markdown for a DH.
-
-        Concatenates identity.md + knowledge.md + principles.md from the
-        DH's persona dir. Shared files (about_ying/private) are NOT
-        included here — this endpoint is for showing the user what the
-        DH's role-specific prompt looks like.
-        """
+        """Return the composed persona markdown for a DH."""
         reg = request.app.state.dh_registry
         cfg = reg.get_config(dh_id)
         if not cfg:
@@ -846,6 +840,30 @@ async def create_app(config_path: str) -> FastAPI:
             else:
                 out["files"][name] = None
         return out
+
+    @app.put("/api/digital_humans/{dh_id}/persona/{filename}",
+             dependencies=[Depends(verify_auth)])
+    async def put_dh_persona_file(
+        dh_id: str, filename: str, body: dict, request: Request,
+    ):
+        """Write a single persona file (identity.md / knowledge.md /
+        principles.md) for a DH. Changes pick up on the DH's next
+        context refresh (30-min cycle for Observer, watchdog cycle for
+        Executor). No restart needed — ContextBuilder reads fresh."""
+        if filename not in ("identity.md", "knowledge.md", "principles.md"):
+            raise HTTPException(400, "invalid_filename")
+        reg = request.app.state.dh_registry
+        cfg = reg.get_config(dh_id)
+        if not cfg:
+            raise HTTPException(404, "unknown_dh")
+        content = body.get("content")
+        if not isinstance(content, str):
+            raise HTTPException(400, "body.content must be a string")
+        base = Path(request.app.state.config.agent.persona_dir) / dh_id
+        base.mkdir(parents=True, exist_ok=True)
+        (base / filename).write_text(content, encoding="utf-8")
+        return {"status": "ok", "digital_human_id": dh_id, "filename": filename,
+                "size": len(content)}
 
     @app.get("/api/admin/dh_token/{dh_id}", dependencies=[Depends(verify_auth)])
     async def admin_dh_token(dh_id: str, request: Request):
