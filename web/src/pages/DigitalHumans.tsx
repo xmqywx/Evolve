@@ -9,6 +9,7 @@ import {
   RefreshCw, Power, RotateCcw, Activity,
   ChevronDown, ChevronRight, FileText, Shield, Plus,
 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { apiFetch } from '../utils/api';
 
 interface DHState {
@@ -184,9 +185,18 @@ export default function DigitalHumansPage() {
                     </span>
                   )}
                 </div>
-                <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                  {dh.config.provider}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                    {dh.config.provider}
+                  </span>
+                  <Link
+                    to={`/digital_humans/${dh.id}`}
+                    className="text-xs px-2 py-0.5 rounded border border-border hover:bg-accent"
+                    style={{ color: 'var(--text)' }}
+                  >
+                    {t('dh.details')} →
+                  </Link>
+                </div>
               </div>
 
               <div className="text-xs space-y-1.5" style={{ color: 'var(--text-muted)' }}>

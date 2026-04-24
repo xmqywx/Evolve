@@ -58,7 +58,29 @@
     "restarts": "重启次数：{{n}}",
     "lastCrash": "上次崩溃",
     "personaPreview": "查看 persona",
-    "executorManagedNote": "Executor 由生存引擎托管（不通过本页面启停）；请在「生存引擎」页面启停"
+    "executorManagedNote": "Executor 由生存引擎托管（不通过本页面启停）；请在「生存引擎」页面启停",
+    "details": "详情",
+    "back": "返回",
+    "tabs": {
+      "overview": "概览",
+      "identity": "身份",
+      "prompt": "Prompt",
+      "skills": "技能",
+      "mcp": "MCP",
+      "model": "模型",
+      "capabilities": "能力"
+    },
+    "tab": {
+      "prompt": { "variables": "检测到的变量占位" },
+      "skills": { "wildcardNote": "\"*\" 表示允许所有技能" },
+      "mcp": { "poolEmpty": "config.yaml 的 mcp_pool 为空，请先在 config.yaml 中添加 MCP 服务器" },
+      "model": { "useGlobal": "使用全局默认" },
+      "capabilities": {
+        "inherited": "继承全局",
+        "override": "设为本 DH 专用",
+        "reset": "还原继承"
+      }
+    }
   },
   "identity": {
     "title": "身份 Prompt",

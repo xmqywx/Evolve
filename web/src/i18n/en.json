@@ -58,7 +58,29 @@
     "restarts": "restarts: {{n}}",
     "lastCrash": "last crash",
     "personaPreview": "persona preview",
-    "executorManagedNote": "Executor is managed by the Survival engine — use the Engine tab to start/stop"
+    "executorManagedNote": "Executor is managed by the Survival engine — use the Engine tab to start/stop",
+    "details": "Details",
+    "back": "Back",
+    "tabs": {
+      "overview": "Overview",
+      "identity": "Identity",
+      "prompt": "Prompt",
+      "skills": "Skills",
+      "mcp": "MCP",
+      "model": "Model",
+      "capabilities": "Capabilities"
+    },
+    "tab": {
+      "prompt": { "variables": "Detected variables" },
+      "skills": { "wildcardNote": "\"*\" means all skills allowed" },
+      "mcp": { "poolEmpty": "No MCP servers in pool. Add to config.yaml → mcp_pool" },
+      "model": { "useGlobal": "Use global default" },
+      "capabilities": {
+        "inherited": "Inherited",
+        "override": "Override",
+        "reset": "Reset to inherited"
+      }
+    }
   },
   "identity": {
     "title": "Identity Prompt",
