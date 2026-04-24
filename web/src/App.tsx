@@ -17,6 +17,7 @@ import KnowledgePage from './pages/Knowledge';
 import ExtensionsPage from './pages/Extensions';
 import SettingsPage from './pages/Settings';
 import DigitalHumansPage from './pages/DigitalHumans';
+import DiscoveriesPage from './pages/Discoveries';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -42,6 +43,7 @@ export default function App() {
         <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="extensions" element={<ExtensionsPage />} />
         <Route path="digital_humans" element={<DigitalHumansPage />} />
+        <Route path="discoveries" element={<DiscoveriesPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>
