@@ -10,3 +10,4 @@ myagent.log
 config.yaml
 persona/about_ying.md
 persona/private.md
+*.log
