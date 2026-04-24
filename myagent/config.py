@@ -118,6 +118,18 @@ class JWTSettings(BaseModel):
     expiry_hours: int = 168  # 7 days
 
 
+class DigitalHumanEntry(BaseModel):
+    """One entry in the digital_humans: config section (S1 multi-DH roadmap)."""
+
+    persona_dir: str
+    cmux_session: str
+    provider: str = "codex"
+    heartbeat_interval_secs: int = 600
+    skill_whitelist: list[str] = []
+    endpoint_allowlist: list[str] = []
+    enabled: bool = True
+
+
 class AgentConfig(BaseModel):
     agent: AgentSettings
     claude: ClaudeSettings
@@ -135,6 +147,7 @@ class AgentConfig(BaseModel):
     survival: SurvivalSettings = SurvivalSettings()
     profile: ProfileSettings = ProfileSettings()
     jwt: JWTSettings = JWTSettings()
+    digital_humans: dict[str, DigitalHumanEntry] = {}
 
 
 def load_config(path: str) -> AgentConfig:

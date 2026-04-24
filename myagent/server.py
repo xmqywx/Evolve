@@ -535,6 +535,34 @@ async def create_app(config_path: str) -> FastAPI:
     app.state.profile_builder = profile_builder
 
     # ------------------------------------------------------------------
+    # Digital Human registry (S1 multi-DH roadmap)
+    # ------------------------------------------------------------------
+    from myagent.digital_humans import DigitalHumanRegistry, DHConfig
+
+    dh_registry = DigitalHumanRegistry(
+        state_root=Path(config.agent.data_dir) / "digital_humans"
+    )
+    for dh_id, entry in config.digital_humans.items():
+        dh_registry.register(
+            DHConfig(
+                id=dh_id,
+                persona_dir=entry.persona_dir,
+                cmux_session=entry.cmux_session,
+                provider=entry.provider,
+                heartbeat_interval_secs=entry.heartbeat_interval_secs,
+                skill_whitelist=entry.skill_whitelist,
+                endpoint_allowlist=entry.endpoint_allowlist,
+                enabled=entry.enabled,
+            )
+        )
+    app.state.dh_registry = dh_registry
+    logger.info(
+        "Digital Human registry initialized with %d DHs: %s",
+        len(dh_registry.list_ids()),
+        dh_registry.list_ids(),
+    )
+
+    # ------------------------------------------------------------------
     # Public routes
     # ------------------------------------------------------------------
 
@@ -681,6 +709,100 @@ async def create_app(config_path: str) -> FastAPI:
         if not claude_mem_bridge or not claude_mem_bridge.available:
             return []
         return claude_mem_bridge.get_projects()
+
+    # ------------------------------------------------------------------
+    # Digital Humans lifecycle API (S1 multi-DH roadmap)
+    # ------------------------------------------------------------------
+
+    @app.get("/api/digital_humans", dependencies=[Depends(verify_auth)])
+    async def list_digital_humans(request: Request):
+        reg = request.app.state.dh_registry
+        out = []
+        for dh_id in reg.list_ids():
+            cfg = reg.get_config(dh_id)
+            state = reg.get_state(dh_id)
+            out.append({
+                "id": dh_id,
+                "config": {
+                    "persona_dir": cfg.persona_dir,
+                    "cmux_session": cfg.cmux_session,
+                    "provider": cfg.provider,
+                    "heartbeat_interval_secs": cfg.heartbeat_interval_secs,
+                    "skill_whitelist": cfg.skill_whitelist,
+                    "endpoint_allowlist": cfg.endpoint_allowlist,
+                    "enabled": cfg.enabled,
+                },
+                "state": {
+                    "cmux_session": state.cmux_session,
+                    "started_at": state.started_at,
+                    "last_heartbeat_at": state.last_heartbeat_at,
+                    "restart_count": state.restart_count,
+                    "last_crash": state.last_crash,
+                    "enabled": state.enabled,
+                },
+            })
+        return out
+
+    @app.get("/api/digital_humans/{dh_id}", dependencies=[Depends(verify_auth)])
+    async def get_digital_human(dh_id: str, request: Request):
+        reg = request.app.state.dh_registry
+        cfg = reg.get_config(dh_id)
+        if not cfg:
+            raise HTTPException(404, "unknown_dh")
+        state = reg.get_state(dh_id)
+        return {
+            "id": dh_id,
+            "config": {
+                "persona_dir": cfg.persona_dir,
+                "cmux_session": cfg.cmux_session,
+                "provider": cfg.provider,
+                "heartbeat_interval_secs": cfg.heartbeat_interval_secs,
+                "skill_whitelist": cfg.skill_whitelist,
+                "endpoint_allowlist": cfg.endpoint_allowlist,
+                "enabled": cfg.enabled,
+            },
+            "state": {
+                "cmux_session": state.cmux_session,
+                "started_at": state.started_at,
+                "last_heartbeat_at": state.last_heartbeat_at,
+                "restart_count": state.restart_count,
+                "last_crash": state.last_crash,
+                "enabled": state.enabled,
+            },
+        }
+
+    @app.post("/api/digital_humans/{dh_id}/start", dependencies=[Depends(verify_auth)])
+    async def start_digital_human(dh_id: str, request: Request):
+        # S1: only "observer" has a pluggable runtime; "executor" is still
+        # managed by the legacy SurvivalEngine.
+        if dh_id != "observer":
+            raise HTTPException(501, "start_not_supported_for_dh_in_s1")
+        engine = getattr(request.app.state, "observer_engine", None)
+        if engine is None:
+            raise HTTPException(503, "observer_engine_not_initialized")
+        await engine.start()
+        return {"status": "started"}
+
+    @app.post("/api/digital_humans/{dh_id}/stop", dependencies=[Depends(verify_auth)])
+    async def stop_digital_human(dh_id: str, request: Request):
+        if dh_id != "observer":
+            raise HTTPException(501, "stop_not_supported_for_dh_in_s1")
+        engine = getattr(request.app.state, "observer_engine", None)
+        if engine is None:
+            raise HTTPException(503, "observer_engine_not_initialized")
+        await engine.stop()
+        return {"status": "stopped"}
+
+    @app.post("/api/digital_humans/{dh_id}/restart", dependencies=[Depends(verify_auth)])
+    async def restart_digital_human(dh_id: str, request: Request):
+        if dh_id != "observer":
+            raise HTTPException(501, "restart_not_supported_for_dh_in_s1")
+        engine = getattr(request.app.state, "observer_engine", None)
+        if engine is None:
+            raise HTTPException(503, "observer_engine_not_initialized")
+        await engine.stop()
+        await engine.start()
+        return {"status": "restarted"}
 
     # ------------------------------------------------------------------
     # Agent Self-Report API (Phase 3)

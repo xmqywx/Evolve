@@ -58,3 +58,21 @@ jwt:
 survival:
   enabled: true
   workspace: "/path/to/workspace"
+
+digital_humans:
+  executor:
+    persona_dir: persona/executor
+    cmux_session: mycmux-executor
+    provider: codex
+    heartbeat_interval_secs: 600
+    skill_whitelist: ["*"]
+    endpoint_allowlist: ["heartbeat", "deliverable", "discovery", "workflow", "upgrade", "review"]
+    enabled: true
+  observer:
+    persona_dir: persona/observer
+    cmux_session: mycmux-observer
+    provider: codex
+    heartbeat_interval_secs: 1800
+    skill_whitelist: []
+    endpoint_allowlist: ["heartbeat", "discovery"]
+    enabled: false  # set true when Observer runtime (S1 Task 9) is wired
