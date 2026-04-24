@@ -568,6 +568,12 @@ async def create_app(config_path: str) -> FastAPI:
         dh_registry.list_ids(),
     )
 
+    # Back-wire the registry into SurvivalEngine so that when it (re)starts,
+    # it mints a per-DH executor token instead of exporting the master token.
+    # SurvivalEngine was instantiated earlier (before registry was available);
+    # setting the attribute here is the cleanest seam.
+    survival_engine._dh_registry = dh_registry
+
     # Observer engine — only start if observer is configured AND enabled
     from myagent.observer import ObserverEngine
     observer_cfg = config.digital_humans.get("observer")

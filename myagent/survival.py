@@ -52,6 +52,7 @@ class SurvivalEngine:
         server_port: int = 3818,
         knowledge_engine=None,
         provider: AIProvider | None = None,
+        dh_registry=None,
     ) -> None:
         self._db = db
         self._claude = claude_settings
@@ -61,6 +62,7 @@ class SurvivalEngine:
         self._on_log = on_log
         self._server_port = server_port
         self._knowledge_engine = knowledge_engine
+        self._dh_registry = dh_registry  # S1: when provided, mint DH token on start
         self._running = False
         self._workspace = Path(settings.workspace)
         # Provider-driven CLI launch; fall back to a Claude provider to keep
@@ -683,12 +685,23 @@ class SurvivalEngine:
 
         # Build a shell one-liner that exports env vars and execs the AI CLI.
         # cmux --command types this + Enter into the workspace's default shell.
+        # S1: prefer per-DH auth token when registry is available; fall back
+        # to legacy master token for callers that didn't wire the registry.
+        token = self._server_secret
+        if self._dh_registry is not None:
+            try:
+                from myagent.digital_humans import issue_token
+                token = issue_token(self._dh_registry, "executor")
+            except Exception:
+                # Don't crash the executor start if token mint fails —
+                # master-token back-compat path in dh_auth.py still works.
+                pass
         exports = [
             "unset CLAUDECODE",
             f"export MYAGENT_URL=http://localhost:{self._server_port}",
         ]
-        if self._server_secret:
-            exports.append(f"export MYAGENT_TOKEN={self._server_secret}")
+        if token:
+            exports.append(f"export MYAGENT_TOKEN={token}")
         shell_cmd = "; ".join(exports) + f"; exec {launch.cmd}"
 
         code, out = await self._cmux(
