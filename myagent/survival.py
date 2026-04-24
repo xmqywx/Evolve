@@ -116,11 +116,23 @@ class SurvivalEngine:
         return None
 
     async def _cmux_workspace_exists(self) -> bool:
+        """Return True if our workspace is alive. Conservative on transient
+        cmux CLI failures — two consecutive absent-lists required to declare
+        death, because a single hiccup used to trigger false watchdog restarts."""
         if not self._cmux_workspace_id:
             return False
+        # First probe
         code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
         if code != 0:
-            return False
+            # CLI error → can't tell; assume alive to avoid cascading restarts
+            return True
+        if any(line.strip().startswith(self._cmux_workspace_id) for line in out.splitlines()):
+            return True
+        # Missing from list — retry once after short delay to rule out race
+        await asyncio.sleep(0.5)
+        code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
+        if code != 0:
+            return True  # Still ambiguous — keep alive
         return any(line.strip().startswith(self._cmux_workspace_id) for line in out.splitlines())
 
     async def _cmux_capture_pane(self) -> str:
@@ -764,13 +776,16 @@ class SurvivalEngine:
         return {"status": "sent"}
 
     async def get_status(self) -> dict:
-        exists = await self._cmux_workspace_exists()
-        # Reconnect to a persisted workspace id if we forgot but it's still alive.
-        if not exists and self._load_workspace_id():
+        # Reconnect from persisted id if in-memory state was lost.
+        if not self._cmux_workspace_id:
             self._cmux_workspace_id = self._load_workspace_id()
-            exists = await self._cmux_workspace_exists()
-            if not exists:
-                self._clear_workspace_id()
+        exists = await self._cmux_workspace_exists()
+        # Intentionally do NOT clear state here on a single "not exists"
+        # observation — cmux CLI occasionally times out / returns stale data,
+        # and clearing the file made the watchdog start() create a new
+        # workspace while the old one was still alive (duplicate-workspace
+        # thrash, observed 2026-04-24). Let stop() be the only state-clearing
+        # path; watchdog's own restart path will clean up on real deaths.
 
         hb = await self._db.get_latest_heartbeat()
         hb_age = await self._get_heartbeat_age_secs()
