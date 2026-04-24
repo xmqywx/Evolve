@@ -8,7 +8,7 @@
     <array>
         <string>/bin/bash</string>
         <string>-c</string>
-        <string>cd /Users/ying/Documents/MyAgent && bash scripts/s1_daily_check.sh >> docs/s1-daily-log.md 2>&1</string>
+        <string>cd /Users/ying/Documents/MyAgent && bash scripts/s1_daily_check.sh >> logs/s1-daily-log.md 2>&1</string>
     </array>
     <key>StartCalendarInterval</key>
     <dict>

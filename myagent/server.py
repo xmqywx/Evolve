@@ -2360,6 +2360,73 @@ async def _backup_loop(app: FastAPI) -> None:
             await asyncio.sleep(3600)
 
 
+async def _write_s1_daily_check(app: FastAPI) -> None:
+    """Append today's S1 health metrics to docs/s1-daily-log.md.
+
+    Runs from _supervisor_loop at 23:00, not from an external launchd
+    agent (which hit macOS TCC "Operation not permitted" on Documents).
+    """
+    from datetime import datetime as _dt, timezone as _tz
+    from pathlib import Path as _P
+    import json as _json
+
+    db = app.state.db
+    reg = app.state.dh_registry
+    now_s = _dt.now(_tz.utc).isoformat()
+
+    # Metrics
+    obs_disc = await _scalar_count(
+        db, "SELECT COUNT(*) FROM agent_discoveries WHERE digital_human_id='observer'"
+    )
+    obs_hb_last = await _scalar_count(
+        db,
+        "SELECT 1 FROM agent_heartbeats WHERE digital_human_id='observer' "
+        "ORDER BY id DESC LIMIT 1",
+    )
+    obs_state = reg.get_state("observer") if reg else None
+    exec_state = reg.get_state("executor") if reg else None
+    dedup_hits = await _scalar_count(
+        db, "SELECT COUNT(*) FROM agent_discovery_dedup WHERE hit_count > 1"
+    )
+    # Role isolation audit
+    iso = {}
+    for t in ("agent_deliverables", "agent_workflows", "agent_upgrades", "agent_reviews"):
+        iso[t] = await _scalar_count(
+            db, f"SELECT COUNT(*) FROM {t} WHERE digital_human_id='observer'"
+        )
+    burst = await _scalar_count(
+        db,
+        "SELECT COUNT(*) FROM agent_discoveries WHERE digital_human_id='observer' "
+        "AND created_at > datetime('now', '-1 hour')",
+    )
+
+    lines = [
+        f"\n## Auto daily check — {now_s}",
+        f"- observer discovery count: {obs_disc}",
+        f"- observer restart_count: "
+        f"{obs_state.restart_count if obs_state else 'n/a'}",
+        f"- observer last_heartbeat_at: "
+        f"{obs_state.last_heartbeat_at if obs_state else 'n/a'}",
+        f"- executor last_heartbeat_at: "
+        f"{exec_state.last_heartbeat_at if exec_state else 'n/a'}",
+        f"- dedup suppressions (hit_count>1): {dedup_hits}",
+        f"- discovery burst last hour: {burst}",
+        f"- role isolation (expect all 0): {_json.dumps(iso)}",
+    ]
+    log_path = _P(app.state.config.agent.data_dir) / "docs" / "s1-daily-log.md"
+    with log_path.open("a", encoding="utf-8") as f:
+        f.write("\n".join(lines) + "\n")
+    logger.info("s1 daily check appended to %s", log_path)
+
+
+async def _scalar_count(db, query: str) -> int:
+    cursor = await db._db.execute(query)
+    row = await cursor.fetchone()
+    if not row:
+        return 0
+    return row[0] if row[0] is not None else 0
+
+
 async def _supervisor_loop(app: FastAPI) -> None:
     """Daily 23:00 cron: supervisor report + S1 dedup TTL purge."""
     from myagent.supervisor import generate_report
@@ -2386,6 +2453,14 @@ async def _supervisor_loop(app: FastAPI) -> None:
                         logger.info("dedup TTL: purged %d rows older than 7 days", purged)
                 except Exception:
                     logger.exception("dedup TTL purge failed")
+                # S1 daily health check — write a dated section to
+                # docs/s1-daily-log.md. Runs in-process so TCC grants that
+                # the main service has apply; an external launchd agent
+                # would hit "Operation not permitted" on Documents/.
+                try:
+                    await _write_s1_daily_check(app)
+                except Exception:
+                    logger.exception("s1 daily check failed")
                 last_run_date = today
             await asyncio.sleep(60)
         except asyncio.CancelledError:

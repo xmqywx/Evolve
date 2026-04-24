@@ -54,3 +54,12 @@ Started: 2026-04-24
   `"Observer context refreshed; no actionable discovery signal available in provided context."`
 - This is codex (not my curl) — Observer's 30-min timer fired and the LLM responded.
 - Note: I never saw Observer's first natural timer fire until now; that answers the P1 gap from day-0.
+
+## Auto daily check — 2026-04-24T13:29:34.136530+00:00
+- observer discovery count: 1
+- observer restart_count: 1
+- observer last_heartbeat_at: 2026-04-24T13:25:49.388041+00:00
+- executor last_heartbeat_at: 2026-04-24T13:25:53.004673+00:00
+- dedup suppressions (hit_count>1): 1
+- discovery burst last hour: 1
+- role isolation (expect all 0): {"agent_deliverables": 0, "agent_workflows": 0, "agent_upgrades": 0, "agent_reviews": 0}
