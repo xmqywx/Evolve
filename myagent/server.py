@@ -2293,7 +2293,7 @@ async def _backup_loop(app: FastAPI) -> None:
 
 
 async def _supervisor_loop(app: FastAPI) -> None:
-    """Generate supervisor report daily at 23:00 local time."""
+    """Daily 23:00 cron: supervisor report + S1 dedup TTL purge."""
     from myagent.supervisor import generate_report
     last_run_date = None
     while True:
@@ -2310,6 +2310,14 @@ async def _supervisor_loop(app: FastAPI) -> None:
                             logger.info("Supervisor report generated: #%s", result["id"])
                     except Exception:
                         logger.exception("Supervisor report failed")
+                # S1 dedup TTL purge: remove dedup_keys older than 7 days so
+                # the table doesn't grow unbounded.
+                try:
+                    purged = await app.state.db.purge_dedup_ttl(days=7)
+                    if purged > 0:
+                        logger.info("dedup TTL: purged %d rows older than 7 days", purged)
+                except Exception:
+                    logger.exception("dedup TTL purge failed")
                 last_run_date = today
             await asyncio.sleep(60)
         except asyncio.CancelledError:
