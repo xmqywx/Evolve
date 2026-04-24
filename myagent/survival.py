@@ -13,11 +13,13 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Awaitable
 
+from myagent.ai_provider import AIProvider
 from myagent.config import SurvivalSettings, ClaudeSettings
 from myagent.db import Database
 from myagent.feishu import FeishuClient
@@ -49,6 +51,7 @@ class SurvivalEngine:
         on_log: Callable[[str, str, str], Awaitable[None]] | None = None,
         server_port: int = 3818,
         knowledge_engine=None,
+        provider: AIProvider | None = None,
     ) -> None:
         self._db = db
         self._claude = claude_settings
@@ -60,9 +63,16 @@ class SurvivalEngine:
         self._knowledge_engine = knowledge_engine
         self._running = False
         self._workspace = Path(settings.workspace)
-        self._session_file = self._workspace / ".claude_session_id"
+        # Provider-driven CLI launch; fall back to a Claude provider to keep
+        # backwards compatibility with callers that pass claude_settings only.
+        if provider is None:
+            from myagent.ai_provider import ClaudeTmuxProvider
+            provider = ClaudeTmuxProvider(claude_settings)
+        self._provider = provider
+        self._session_file = self._workspace / provider.session_file_name
         self._restart_count = 0
-        self._claude_session_id: str | None = None
+        self._claude_session_id: str | None = None  # kept for backwards-compat
+        self._ai_session_id: str | None = None
         self._nudge_count = 0  # Track nudges to avoid spam
 
         self._workspace.mkdir(parents=True, exist_ok=True)
@@ -126,6 +136,7 @@ class SurvivalEngine:
     def _save_claude_session_id(self, sid: str) -> None:
         self._session_file.write_text(sid)
         self._claude_session_id = sid
+        self._ai_session_id = sid
 
     # ------------------------------------------------------------------
     # Logging
@@ -615,6 +626,7 @@ class SurvivalEngine:
             await self._run_cmd(f"tmux kill-session -t {TMUX_SESSION_NAME}")
 
         self._claude_session_id = self._load_claude_session_id()
+        self._ai_session_id = self._claude_session_id
 
         code, output = await self._run_cmd(
             f'tmux new-session -d -s {TMUX_SESSION_NAME}'
@@ -645,15 +657,16 @@ class SurvivalEngine:
         )
         await asyncio.sleep(0.5)
 
-        claude_cmd = f"{self._claude.binary} --dangerously-skip-permissions --chrome"
-        if self._claude_session_id:
-            claude_cmd += f" --resume {self._claude_session_id}"
-            await self._log("start", f"恢复会话: {self._claude_session_id}")
+        launch = self._provider.build_launch(self._ai_session_id)
+        if launch.is_resume:
+            await self._log("start", f"[{self._provider.name}] 恢复会话: {self._ai_session_id}")
         else:
-            await self._log("start", "首次启动生存引擎")
+            await self._log("start", f"[{self._provider.name}] 首次启动生存引擎")
 
+        # Escape any double-quotes in the command so tmux send-keys parses it safely.
+        safe_cmd = launch.cmd.replace('"', '\\"')
         await self._run_cmd(
-            f'tmux send-keys -t {TMUX_SESSION_NAME} "{claude_cmd}" Enter'
+            f'tmux send-keys -t {TMUX_SESSION_NAME} "{safe_cmd}" Enter'
         )
 
         self._restart_count += 1
@@ -662,7 +675,7 @@ class SurvivalEngine:
 
         # Send identity or recovery prompt
         await asyncio.sleep(5)
-        if self._claude_session_id:
+        if self._ai_session_id:
             # Resume scenario: send context recovery
             recovery = await self._build_recovery_prompt()
             if recovery:
@@ -732,7 +745,9 @@ class SurvivalEngine:
             "pid": pid,
             "current_command": cmd,
             "session_name": TMUX_SESSION_NAME,
+            "provider": self._provider.name,
             "claude_session_id": self._claude_session_id,
+            "ai_session_id": self._ai_session_id,
             "restart_count": self._restart_count,
             "workspace": str(self._workspace),
             "watchdog_active": self._running,
@@ -847,15 +862,51 @@ class SurvivalEngine:
     # ------------------------------------------------------------------
 
     async def discover_session_id(self, scanner_sessions: list) -> str | None:
-        pid = await self._tmux_get_pane_pid()
-        if not pid:
+        # Claude: match tmux pane pid against scanner-tracked sessions.
+        if self._provider.name == "claude":
+            pid = await self._tmux_get_pane_pid()
+            if not pid:
+                return None
+            for s in scanner_sessions:
+                if s.get("pid") == pid:
+                    sid = s.get("id") or s.get("session_id")
+                    if sid:
+                        self._save_claude_session_id(sid)
+                        return sid
             return None
-        for s in scanner_sessions:
-            if s.get("pid") == pid:
-                sid = s.get("id") or s.get("session_id")
-                if sid:
-                    self._save_claude_session_id(sid)
-                    return sid
+
+        # Codex: pick the newest rollout file whose cwd equals our workspace.
+        if self._provider.name == "codex":
+            import json as _json
+            sessions_dir = Path(os.path.expanduser(
+                getattr(self._provider, "_sessions_dir", "~/.codex/sessions")
+                if isinstance(getattr(self._provider, "_sessions_dir", None), str)
+                else str(getattr(self._provider, "_sessions_dir"))
+            ))
+            if not sessions_dir.exists():
+                return None
+            candidates = sorted(
+                sessions_dir.rglob("rollout-*.jsonl"),
+                key=lambda p: p.stat().st_mtime,
+                reverse=True,
+            )[:10]
+            workspace_str = str(self._workspace)
+            for rollout in candidates:
+                try:
+                    with open(rollout, "r", encoding="utf-8") as f:
+                        first = f.readline()
+                    meta = _json.loads(first)
+                    if meta.get("type") != "session_meta":
+                        continue
+                    payload = meta.get("payload", {}) or {}
+                    if payload.get("cwd") != workspace_str:
+                        continue
+                    sid = payload.get("id")
+                    if sid:
+                        self._save_claude_session_id(sid)
+                        return sid
+                except Exception:
+                    continue
         return None
 
     @property

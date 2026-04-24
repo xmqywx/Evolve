@@ -8,7 +8,9 @@ interface EngineStatus {
   pid: number | null;
   current_command: string;
   session_name: string;
+  provider?: string;
   claude_session_id: string | null;
+  ai_session_id?: string | null;
   restart_count: number;
   workspace: string;
   watchdog_active: boolean;
@@ -58,7 +60,8 @@ export default function SurvivalPage() {
     setAnalyzing(true);
     try {
       const body: Record<string, string> = {};
-      if (status?.claude_session_id) body.session_id = status.claude_session_id;
+      const sid = status?.ai_session_id || status?.claude_session_id;
+      if (sid) body.session_id = sid;
       await apiFetch('/api/supervisor/analyze', { method: 'POST', body: JSON.stringify(body) });
       navigate('/supervisor');
     } catch (e: unknown) {
@@ -88,6 +91,14 @@ export default function SurvivalPage() {
             ? <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 9999, background: 'rgba(248,81,73,0.15)', color: '#ff7b72' }}>{t('survival.running')}</span>
             : <span style={{ fontSize: 11, padding: '1px 8px', borderRadius: 9999, background: '#21262d', color: '#8b949e' }}>{t('survival.stopped')}</span>
           }
+          {status?.provider && (
+            <span style={{
+              fontSize: 11, padding: '1px 8px', borderRadius: 9999,
+              background: status.provider === 'codex' ? 'rgba(160,120,255,0.15)' : 'rgba(88,166,255,0.15)',
+              color: status.provider === 'codex' ? '#c8a2ff' : '#58a6ff',
+              textTransform: 'uppercase', letterSpacing: 0.5,
+            }}>{status.provider}</span>
+          )}
           {status?.pid && <span style={{ fontSize: 11, color: '#8b949e' }}>PID: {status.pid}</span>}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

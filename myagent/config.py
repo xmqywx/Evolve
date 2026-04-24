@@ -18,6 +18,15 @@ class ClaudeSettings(BaseModel):
     args: list[str] = []
 
 
+class CodexSettings(BaseModel):
+    binary: str = "codex"
+    default_cwd: str = "."
+    args: list[str] = []
+    model: str = ""
+    profile: str = ""
+    sessions_dir: str = "~/.codex/sessions"
+
+
 class SchedulerSettings(BaseModel):
     max_daily_calls: int = 50
     min_interval_seconds: int = 30
@@ -88,6 +97,7 @@ class SurvivalSettings(BaseModel):
     enabled: bool = True
     workspace: str = "/Users/ying/Documents/workspace"
     notify_feishu: bool = True
+    provider: str = "claude"  # claude | codex
 
 
 class ProfileSettings(BaseModel):
@@ -109,6 +119,7 @@ class JWTSettings(BaseModel):
 class AgentConfig(BaseModel):
     agent: AgentSettings
     claude: ClaudeSettings
+    codex: CodexSettings = CodexSettings()
     scheduler: SchedulerSettings
     server: ServerSettings
     feishu: FeishuSettings = FeishuSettings()

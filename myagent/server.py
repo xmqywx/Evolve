@@ -31,6 +31,7 @@ from myagent.scheduler import Scheduler
 from myagent.session_registry import SessionRegistry
 from myagent.router import MessageRouter, SYSTEM, CHAT, SEARCH
 from myagent.context_builder import ContextBuilder
+from myagent.ai_provider import build_provider
 from myagent.survival import SurvivalEngine
 from myagent.profile_builder import ProfileBuilder
 from myagent.ws_client import RelayClient
@@ -368,6 +369,13 @@ async def create_app(config_path: str) -> FastAPI:
     from myagent.knowledge import KnowledgeEngine
     knowledge_engine = KnowledgeEngine(db, doubao_client) if doubao_client.is_enabled else None
 
+    ai_provider = build_provider(
+        config.survival.provider,
+        config.claude,
+        config.codex,
+        claude_projects_dir=config.scanner.claude_projects_dir,
+    )
+    logger.info("SurvivalEngine using provider: %s", ai_provider.name)
     survival_engine = SurvivalEngine(
         db=db,
         claude_settings=config.claude,
@@ -377,6 +385,7 @@ async def create_app(config_path: str) -> FastAPI:
         on_log=_broadcast_survival_log,
         server_port=config.server.port,
         knowledge_engine=knowledge_engine,
+        provider=ai_provider,
     )
 
     # Profile builder
