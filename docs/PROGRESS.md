@@ -97,8 +97,8 @@ Remaining open follow-ups (tech debt, not Phase 5 gaps):
 |------|------|----------------|--------|
 | `docs/specs/plans/2026-04-24-stabilization-sprint.md` | 23 | Meta — this sprint discussing tmux migration | None, expected |
 | `docs/specs/2026-04-24-stabilization-sprint-design.md` | 7 | Meta — this sprint's spec | None, expected |
-| `README.md` | 5 | Project readme — may still describe tmux setup | **Needs update (next round)** |
-| `README_CN.md` | 5 | Chinese readme | **Needs update (next round)** |
+| `README.md` | 1 | Now contextual ("formerly tmux") after 2026-04-24 update | None, contextual |
+| `README_CN.md` | 1 | Now contextual ("从 tmux 迁移") after 2026-04-24 update | None, contextual |
 | `docs/specs/2026-03-13-myagent-v2-design.md` | 5 | Superseded v2 spec; banner notes legacy | None, banner sufficient |
 | `docs/PROGRESS.md` | 2 | This file's catalog | None, expected |
 | `docs/OVERVIEW.md` | 2 | Mentions "formerly tmux" explicitly | None, contextual |
@@ -108,7 +108,7 @@ Remaining open follow-ups (tech debt, not Phase 5 gaps):
 | `docs/ARCHITECTURE.md` | 1 | Mentions "formerly tmux" explicitly | None, contextual |
 | `CLAUDE.md` | 1 | Mentions "formerly tmux" explicitly | None, contextual |
 
-**Net actionable docs residuals**: `README.md` + `README_CN.md` (10 hits total). Deferred to a follow-up "docs polish" round.
+**Net actionable docs residuals**: none remaining. README / README_CN were fixed in commit `1d6dffe` (2026-04-24).
 
 #### Code layer breakdown (`rg -c "tmux" -g '*.py' -g '*.ts' -g '*.tsx' -g '*.js'`)
 
