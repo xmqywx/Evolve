@@ -118,7 +118,7 @@ Full test suite at completion of code: **224 pass / 2 pre-existing failures / 19
 ✅ Daily check wired into in-process `_supervisor_loop` (23:00 cron) — writes to `docs/s1-daily-log.md`
 🚧 Day 1–7 gathering real observer discoveries — supervisor loop auto-appends nightly
 
-### 10-round self-audit rollout (2026-04-24 evening)
+### 10-round self-audit rollout (2026-04-24 evening, R1–R10)
 
 | Round | Fix | Commit |
 |-------|-----|--------|
@@ -131,7 +131,24 @@ Full test suite at completion of code: **224 pass / 2 pre-existing failures / 19
 | R7 | Drop 2 obsolete `chat_manager` tests → **full suite 225/0 green** | `a812ef0` |
 | R8 | `SurvivalEngine.start()` now calls `registry.mark_started("executor", ...)` so executor state.json populates | `9cd8f58` |
 | R9 | `.gitignore digital_humans/` runtime state + security audit (tokens not leakable via ps/history) | `5c37d23` |
-| R10 | Final sweep: 225 pass, both DHs healthy on API, cmux alive | _this commit_ |
+| R10 | Final sweep: 225 pass, both DHs healthy on API, cmux alive | `42cdd0a` |
+
+### Second 10-round rollout (2026-04-24 late-evening, R11–R20)
+
+| Round | Fix | Commit |
+|-------|-----|--------|
+| R11 | Grep-scan + fix `.get(k, '')[:N]` NoneType pattern in 5 modules (context_builder / supervisor / survival / cli) | `66b4636` |
+| R12 | Delete dead `deploy/launchd/`; purge stale root `persona/*.md` from HEAD (T3 'git mv' left duplicates) | `34318a7` |
+| R13 | `GET /api/digital_humans/{id}/persona` endpoint + DigitalHumans page: color-coded allowlist badges + expandable persona preview | `ef19610` |
+| R14 | New `/discoveries` page — dedicated UI for `agent_discoveries` (was sqlite-only before) + sidebar icon + i18n | `b4f0c37` |
+| R15 | Observer prompt rewrite — proactive scanner mandate + 4-signal checklist + output SLA + good/bad examples | `a3676c7` |
+| R16 | Dashboard DH strip shows today's 📦 deliverables + 💡 discoveries per DH | `c37802f` |
+| R17 | `/api/agent/stats?digital_human_id=` backend filter + richer today counts; replaces R16 client-side filter | `1f417c3` |
+| R18 | 7 new tests covering R13 persona endpoint + R17 stats scoping; **232 total pass** | `4200463` |
+| R19 | Observer `_wait_for_cmux_ready` — poll-until-ready + auto-accept trust dialog; replaces racy 5s sleep | `afa30b9` |
+| R20 | **Observer produced its first 2 real LLM-authored discoveries** (PPT backend CPU + Playlet-Clip Gmail bottleneck, both medium-risk) | _this commit_ |
+
+Observer behavior change post-R15 prompt tuning: heartbeats went from repeating "no actionable discovery" to substantive "Observer context refreshed; monitoring Executor/system/external..." and two genuine risk signals landed in `agent_discoveries`.
 
 ### When validation window ends (day 7)
 
