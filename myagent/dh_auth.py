@@ -27,16 +27,20 @@ from fastapi import Depends, Header, HTTPException, Request
 from myagent.auth import verify_token
 from myagent.digital_humans import validate_token
 
-# Transitional compatibility: S1 does not update survival.py's auth path.
-# Existing SurvivalEngine already exports MYAGENT_TOKEN (= server.secret, the
-# master bearer token) into its cmux env. Until that migrates to a per-DH
-# token (planned for T10 or a later pass), a request authenticated with the
-# master token or a valid JWT is attributed to `executor` — since the only
-# human/agent with those credentials today IS the executor.
+# Transitional compatibility flag.
 #
-# New Observer DH calls MUST use a per-DH token minted via
-# DigitalHumanRegistry.issue_token (see digital_humans.py).
-BACKCOMPAT_MASTER_AS_EXECUTOR = True
+# When True: a request with the server master token (server.secret) or a
+# valid JWT is attributed to `executor`. This was needed during S1 rollout
+# while the SurvivalEngine's cmux session was still using the master token.
+#
+# After R1 (2026-04-24 21:23), SurvivalEngine mints a per-DH executor token
+# via registry.issue_token at start(), so all legitimate executor writes go
+# through a proper DH token. The back-compat path is now redundant and a
+# latent security hole (anyone with the master token could write as executor
+# for the full allowlist of 6 endpoints). Default is now False (hardened).
+#
+# To re-enable for emergency rollback: set to True and restart.
+BACKCOMPAT_MASTER_AS_EXECUTOR = False
 
 
 async def auth_dh(

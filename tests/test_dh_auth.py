@@ -185,13 +185,13 @@ async def test_client_cannot_override_dedup_key(app, observer_token):
 
 
 @pytest.mark.asyncio
-async def test_master_token_maps_to_executor(app):
-    """Transitional compat: existing survival engine uses master token.
-    Should be attributed to executor so it keeps working through the swap."""
+async def test_master_token_rejected_on_agent_endpoints(app):
+    """After R2 hardening, master server.secret / JWT is NOT a valid DH
+    credential. Writes to /api/agent/* must carry a per-DH token."""
     async with await _client(app, "Bearer test-master") as c:
         r = await c.post("/api/agent/heartbeat", json={"activity": "coding"})
-    assert r.status_code == 200
-    assert r.json()["digital_human_id"] == "executor"
+    assert r.status_code == 401
+    assert "invalid_dh_token" in r.json()["detail"]
 
 
 @pytest.mark.asyncio
