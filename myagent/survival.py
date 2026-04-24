@@ -692,6 +692,9 @@ class SurvivalEngine:
             try:
                 from myagent.digital_humans import issue_token
                 token = issue_token(self._dh_registry, "executor")
+                # Also populate state.json's cmux_session + started_at so
+                # /api/digital_humans reflects executor's real state.
+                self._dh_registry.mark_started("executor", cmux_session=CMUX_WORKSPACE_NAME)
             except Exception:
                 # Don't crash the executor start if token mint fails —
                 # master-token back-compat path in dh_auth.py still works.
