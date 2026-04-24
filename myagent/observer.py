@@ -20,6 +20,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from myagent.ai_provider import build_provider
+from myagent.dh_config import augment_codex_cmd, resolve
 from myagent.digital_humans import (
     DigitalHumanRegistry,
     invalidate_token,
@@ -121,6 +122,13 @@ class ObserverEngine:
         if not cfg:
             return {"status": "error", "error": "observer not configured"}
 
+        # DH-sovereign effective config (model / prompt_file / mcp).
+        try:
+            resolved = resolve(self.config, DH_ID)
+        except KeyError:
+            return {"status": "error", "error": "observer not configured"}
+        self._resolved = resolved
+
         # Close any lingering workspace with same name from prior runs
         existing = await self._cmux_find_by_name(cfg.cmux_session)
         if existing:
@@ -129,14 +137,23 @@ class ObserverEngine:
         # Mint fresh token
         token = issue_token(self.registry, DH_ID)
 
-        # Build shell command: export env then exec the provider CLI
+        # Build shell command: export env then exec the provider CLI,
+        # augmented with DH-specific codex -c overrides (model / mcp).
         launch = self._provider.build_launch(None)
+        global_codex_model = getattr(
+            getattr(self.config, "codex", None), "model", ""
+        ) or ""
+        launch_cmd = (
+            augment_codex_cmd(launch.cmd, resolved, global_codex_model)
+            if resolved.provider == "codex"
+            else launch.cmd
+        )
         exports = [
             "unset CLAUDECODE",
             f"export MYAGENT_URL=http://localhost:{self.port}",
             f"export MYAGENT_DH_TOKEN={token}",
         ]
-        shell_cmd = "; ".join(exports) + f"; exec {launch.cmd}"
+        shell_cmd = "; ".join(exports) + f"; exec {launch_cmd}"
 
         # Use dedicated observer workspace dir (sibling of survival's workspace).
         # Falls back to survival.workspace if the observer subdir doesn't exist.
@@ -238,11 +255,20 @@ class ObserverEngine:
         await self._send_to_cmux(prompt)
 
     async def _send_initial_prompt(self):
-        """Send Observer identity prompt on first start."""
-        persona_path = (
-            Path(self.config.agent.persona_dir) / DH_ID / "identity.md"
-        )
-        if persona_path.exists():
+        """Send Observer identity / prompt template on first start.
+
+        Honors DH-sovereignty: if `prompt_template_file` is set, uses that
+        file; otherwise falls back to identity.md (the classic path).
+        """
+        persona_path: Path | None = None
+        resolved = getattr(self, "_resolved", None)
+        if resolved is not None and resolved.prompt_template_path is not None:
+            persona_path = resolved.prompt_template_path
+        else:
+            candidate = Path(self.config.agent.persona_dir) / DH_ID / "identity.md"
+            if candidate.exists():
+                persona_path = candidate
+        if persona_path and persona_path.exists():
             identity = persona_path.read_text(encoding="utf-8")[:CONTEXT_CAP_BYTES]
             await self._send_to_cmux(identity)
 
@@ -391,14 +417,28 @@ class ObserverEngine:
         existing = await self._cmux_find_by_name(cfg.cmux_session)
         if existing:
             await self._cmux("close-workspace", "--workspace", existing)
-        # Re-mint token + re-spawn workspace
+        # Re-mint token + re-spawn workspace (re-resolve DH config in case
+        # yaml was edited since last start).
         token = issue_token(self.registry, DH_ID)
         launch = self._provider.build_launch(None)
+        try:
+            resolved = resolve(self.config, DH_ID)
+            self._resolved = resolved
+            global_codex_model = getattr(
+                getattr(self.config, "codex", None), "model", ""
+            ) or ""
+            launch_cmd = (
+                augment_codex_cmd(launch.cmd, resolved, global_codex_model)
+                if resolved.provider == "codex"
+                else launch.cmd
+            )
+        except KeyError:
+            launch_cmd = launch.cmd
         shell_cmd = (
             "unset CLAUDECODE; "
             f"export MYAGENT_URL=http://localhost:{self.port}; "
             f"export MYAGENT_DH_TOKEN={token}; "
-            f"exec {launch.cmd}"
+            f"exec {launch_cmd}"
         )
         obs_workspace = Path(self.config.survival.workspace) / "observer"
         obs_workspace.mkdir(parents=True, exist_ok=True)

@@ -960,32 +960,132 @@ class Database:
     # agent_config
     # ------------------------------------------------------------------
 
-    async def get_agent_config(self) -> dict:
-        """Get all agent config key-value pairs."""
-        cursor = await self._db.execute("SELECT key, value FROM agent_config")
+    async def get_agent_config(self, digital_human_id: str | None = None) -> dict:
+        """Get agent config key-value pairs.
+
+        When `digital_human_id` is provided, returns a merged view:
+        per-DH rows override global (NULL) rows for the same key.
+        When None, returns only the global (NULL dh_id) rows — the
+        legacy global-config behavior.
+        """
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT key, value FROM agent_config WHERE digital_human_id IS NULL"
+            )
+            rows = await cursor.fetchall()
+            return {r[0]: r[1] for r in rows}
+        # Merge: start with global, overlay per-DH
+        cursor = await self._db.execute(
+            "SELECT key, value FROM agent_config WHERE digital_human_id IS NULL"
+        )
+        merged = {r[0]: r[1] for r in await cursor.fetchall()}
+        cursor = await self._db.execute(
+            "SELECT key, value FROM agent_config WHERE digital_human_id = ?",
+            (digital_human_id,),
+        )
+        for r in await cursor.fetchall():
+            merged[r[0]] = r[1]
+        return merged
+
+    async def get_agent_config_value(
+        self, key: str, digital_human_id: str | None = None,
+    ) -> str | None:
+        """Resolve a single key with dh_id-first, null-fallback rule.
+
+        - If dh_id given: try (dh_id, key); fall back to (NULL, key); else None.
+        - If dh_id None: return only the global (NULL) row.
+        """
+        if digital_human_id is not None:
+            cursor = await self._db.execute(
+                "SELECT value FROM agent_config WHERE digital_human_id = ? AND key = ?",
+                (digital_human_id, key),
+            )
+            row = await cursor.fetchone()
+            if row is not None:
+                return row[0]
+        cursor = await self._db.execute(
+            "SELECT value FROM agent_config WHERE digital_human_id IS NULL AND key = ?",
+            (key,),
+        )
+        row = await cursor.fetchone()
+        return row[0] if row else None
+
+    async def get_agent_config_rows(
+        self, digital_human_id: str | None = None,
+    ) -> dict:
+        """Return only per-DH rows (explicit overrides), without fallback merge.
+
+        Used by management UI to show which keys are overridden vs. inherited.
+        `digital_human_id=None` → global rows only.
+        """
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "SELECT key, value FROM agent_config WHERE digital_human_id IS NULL"
+            )
+        else:
+            cursor = await self._db.execute(
+                "SELECT key, value FROM agent_config WHERE digital_human_id = ?",
+                (digital_human_id,),
+            )
         rows = await cursor.fetchall()
         return {r[0]: r[1] for r in rows}
 
-    async def set_agent_config(self, key: str, value: str) -> None:
-        """Upsert a single agent config key."""
+    async def set_agent_config(
+        self, key: str, value: str, digital_human_id: str | None = None,
+    ) -> None:
+        """Upsert a single agent config key scoped to dh_id (None = global)."""
         now = datetime.now(timezone.utc).isoformat()
-        await self._db.execute(
-            "INSERT INTO agent_config (key, value, updated_at) VALUES (?, ?, ?) "
-            "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-            (key, value, now),
-        )
-        await self._db.commit()
-
-    async def set_agent_config_bulk(self, items: dict[str, str]) -> None:
-        """Upsert multiple agent config keys."""
-        now = datetime.now(timezone.utc).isoformat()
-        for key, value in items.items():
+        if digital_human_id is None:
+            # ON CONFLICT with UNIQUE(dh_id, key): dh_id=NULL is a valid side.
+            # SQLite treats NULL as distinct for UNIQUE, so use manual update/insert.
+            cursor = await self._db.execute(
+                "SELECT id FROM agent_config WHERE digital_human_id IS NULL AND key = ?",
+                (key,),
+            )
+            existing = await cursor.fetchone()
+            if existing:
+                await self._db.execute(
+                    "UPDATE agent_config SET value = ?, updated_at = ? WHERE id = ?",
+                    (value, now, existing[0]),
+                )
+            else:
+                await self._db.execute(
+                    "INSERT INTO agent_config (key, value, digital_human_id, updated_at) VALUES (?, ?, NULL, ?)",
+                    (key, value, now),
+                )
+        else:
             await self._db.execute(
-                "INSERT INTO agent_config (key, value, updated_at) VALUES (?, ?, ?) "
-                "ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at",
-                (key, value, now),
+                "INSERT INTO agent_config (key, value, digital_human_id, updated_at) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(digital_human_id, key) DO UPDATE SET "
+                "value = excluded.value, updated_at = excluded.updated_at",
+                (key, value, digital_human_id, now),
             )
         await self._db.commit()
+
+    async def set_agent_config_bulk(
+        self, items: dict[str, str], digital_human_id: str | None = None,
+    ) -> None:
+        """Upsert multiple agent config keys scoped to dh_id (None = global)."""
+        for key, value in items.items():
+            await self.set_agent_config(key, value, digital_human_id=digital_human_id)
+
+    async def delete_agent_config(
+        self, key: str, digital_human_id: str | None = None,
+    ) -> bool:
+        """Delete a config row. Returns True if a row was removed."""
+        if digital_human_id is None:
+            cursor = await self._db.execute(
+                "DELETE FROM agent_config WHERE digital_human_id IS NULL AND key = ?",
+                (key,),
+            )
+        else:
+            cursor = await self._db.execute(
+                "DELETE FROM agent_config WHERE digital_human_id = ? AND key = ?",
+                (digital_human_id, key),
+            )
+        await self._db.commit()
+        return cursor.rowcount > 0
 
     # ------------------------------------------------------------------
     # supervisor reports
@@ -1645,9 +1745,12 @@ CREATE TABLE IF NOT EXISTS agent_reviews (
 );
 
 CREATE TABLE IF NOT EXISTS agent_config (
-    key TEXT PRIMARY KEY,
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    key TEXT NOT NULL,
     value TEXT NOT NULL,
-    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    digital_human_id TEXT DEFAULT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    UNIQUE(digital_human_id, key)
 );
 
 CREATE TABLE IF NOT EXISTS scheduled_tasks (

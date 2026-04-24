@@ -398,6 +398,7 @@ async def create_app(config_path: str) -> FastAPI:
         server_port=config.server.port,
         knowledge_engine=knowledge_engine,
         provider=ai_provider,
+        agent_config=config,
     )
 
     # Profile builder
@@ -524,6 +525,7 @@ async def create_app(config_path: str) -> FastAPI:
         allow_headers=["*"],
     )
     app.state.config = config
+    app.state.config_path = config_path
     app.state.db = db
     app.state.scheduler = scheduler
     app.state.feishu_client = feishu_client
@@ -887,6 +889,292 @@ async def create_app(config_path: str) -> FastAPI:
         await engine.stop()
         await engine.start()
         return {"status": "restarted"}
+
+    # ------------------------------------------------------------------
+    # DH Sovereignty API (Task A3)
+    # See docs/specs/2026-04-25-dh-sovereignty-design.md § 6
+    # ------------------------------------------------------------------
+
+    def _skill_slugs_from_dir(agents_dir: Path) -> list[str]:
+        if not agents_dir.exists():
+            return []
+        slugs = []
+        for p in sorted(agents_dir.glob("*.md")):
+            slugs.append(p.stem)
+        return slugs
+
+    def _agents_dir_for(request: Request) -> Path:
+        cfg_path = Path(getattr(request.app.state, "config_path", "config.yaml"))
+        return cfg_path.parent / "agents"
+
+    async def _reload_config_in_place(request: Request) -> AgentConfig:
+        """Re-read config.yaml, swap into app.state.config, and refresh the
+        DH registry entries so runtime reads of the yaml-derived config pick
+        up the change without restarting the server."""
+        cfg_path = getattr(request.app.state, "config_path", None)
+        if not cfg_path:
+            return request.app.state.config
+        new_cfg = load_config(cfg_path)
+        request.app.state.config = new_cfg
+        # Refresh DH registry in-memory config objects.
+        reg = getattr(request.app.state, "dh_registry", None)
+        if reg is not None:
+            from myagent.digital_humans import DHConfig
+            for dh_id, entry in new_cfg.digital_humans.items():
+                reg.register(DHConfig(
+                    id=dh_id,
+                    persona_dir=entry.persona_dir,
+                    cmux_session=entry.cmux_session,
+                    provider=entry.provider,
+                    heartbeat_interval_secs=entry.heartbeat_interval_secs,
+                    skill_whitelist=list(entry.skill_whitelist),
+                    endpoint_allowlist=list(entry.endpoint_allowlist),
+                    enabled=entry.enabled,
+                ))
+        return new_cfg
+
+    # ---------- /config ----------
+
+    @app.get("/api/digital_humans/{dh_id}/config", dependencies=[Depends(verify_auth)])
+    async def get_dh_config(dh_id: str, request: Request):
+        """Return merged config: yaml static + DB overrides + global fallback.
+
+        Response shape:
+          { "dh_id": str,
+            "yaml": { persona_dir, provider, model, ... },
+            "overrides": { key: value }   # per-DH DB rows only
+            "global": { key: value }      # NULL-dh rows (fallback pool)
+            "effective": { key: value }   # merged with per-DH winning
+          }
+        """
+        reg = request.app.state.dh_registry
+        cfg = reg.get_config(dh_id)
+        if not cfg:
+            raise HTTPException(404, "unknown_dh")
+        entry = request.app.state.config.digital_humans.get(dh_id)
+        yaml_view = {}
+        if entry is not None:
+            yaml_view = entry.model_dump()
+        overrides = await db.get_agent_config_rows(digital_human_id=dh_id)
+        global_rows = await db.get_agent_config_rows(digital_human_id=None)
+        effective = dict(global_rows)
+        effective.update(overrides)
+        return {
+            "dh_id": dh_id,
+            "yaml": yaml_view,
+            "overrides": overrides,
+            "global": global_rows,
+            "effective": effective,
+        }
+
+    @app.put("/api/digital_humans/{dh_id}/config", dependencies=[Depends(verify_auth)])
+    async def put_dh_config(dh_id: str, body: dict, request: Request):
+        """Body: {key, value}. Writes DB row with explicit dh_id."""
+        reg = request.app.state.dh_registry
+        if not reg.get_config(dh_id):
+            raise HTTPException(404, "unknown_dh")
+        key = body.get("key")
+        if not isinstance(key, str) or not key:
+            raise HTTPException(400, "body.key must be a non-empty string")
+        value = body.get("value")
+        if value is None:
+            raise HTTPException(400, "body.value is required")
+        await db.set_agent_config(key, str(value), digital_human_id=dh_id)
+        return {"status": "ok", "dh_id": dh_id, "key": key,
+                "value": str(value)}
+
+    @app.delete(
+        "/api/digital_humans/{dh_id}/config/{key}",
+        dependencies=[Depends(verify_auth)],
+    )
+    async def delete_dh_config(dh_id: str, key: str, request: Request):
+        """Remove per-DH override for this key. Falls back to global default."""
+        reg = request.app.state.dh_registry
+        if not reg.get_config(dh_id):
+            raise HTTPException(404, "unknown_dh")
+        removed = await db.delete_agent_config(key, digital_human_id=dh_id)
+        # Return the fallback value so the UI can reflect the new effective state.
+        fallback = await db.get_agent_config_value(key, digital_human_id=None)
+        return {
+            "status": "ok",
+            "removed": removed,
+            "dh_id": dh_id,
+            "key": key,
+            "fallback": fallback,
+        }
+
+    # ---------- /skills ----------
+
+    @app.get("/api/digital_humans/{dh_id}/skills", dependencies=[Depends(verify_auth)])
+    async def get_dh_skills(dh_id: str, request: Request):
+        reg = request.app.state.dh_registry
+        cfg = reg.get_config(dh_id)
+        if not cfg:
+            raise HTTPException(404, "unknown_dh")
+        all_slugs = _skill_slugs_from_dir(_agents_dir_for(request))
+        whitelisted = list(cfg.skill_whitelist)
+        return {"all": all_slugs, "whitelisted": whitelisted}
+
+    @app.put("/api/digital_humans/{dh_id}/skills", dependencies=[Depends(verify_auth)])
+    async def put_dh_skills(dh_id: str, body: dict, request: Request):
+        reg = request.app.state.dh_registry
+        if not reg.get_config(dh_id):
+            raise HTTPException(404, "unknown_dh")
+        whitelisted = body.get("whitelisted")
+        if not isinstance(whitelisted, list) or not all(
+            isinstance(s, str) for s in whitelisted
+        ):
+            raise HTTPException(400, "body.whitelisted must be a list of strings")
+
+        from myagent.yaml_writer import update_yaml
+        cfg_path = request.app.state.config_path
+
+        def _mutate(data: dict) -> dict:
+            dhs = data.setdefault("digital_humans", {})
+            dh_block = dhs.setdefault(dh_id, {})
+            dh_block["skill_whitelist"] = list(whitelisted)
+            return data
+
+        await update_yaml(
+            cfg_path,
+            _mutate,
+            backup_dir=Path(request.app.state.config.agent.data_dir)
+            / "backups" / "yaml",
+        )
+        await _reload_config_in_place(request)
+        return {"status": "ok", "dh_id": dh_id, "whitelisted": list(whitelisted)}
+
+    # ---------- /mcp ----------
+
+    @app.get("/api/digital_humans/{dh_id}/mcp", dependencies=[Depends(verify_auth)])
+    async def get_dh_mcp(dh_id: str, request: Request):
+        cfg_obj = request.app.state.config
+        entry = cfg_obj.digital_humans.get(dh_id)
+        if entry is None:
+            raise HTTPException(404, "unknown_dh")
+        pool = {k: v.model_dump() for k, v in cfg_obj.mcp_pool.items()}
+        return {"pool": pool, "enabled": list(entry.mcp_servers)}
+
+    @app.put("/api/digital_humans/{dh_id}/mcp", dependencies=[Depends(verify_auth)])
+    async def put_dh_mcp(dh_id: str, body: dict, request: Request):
+        cfg_obj = request.app.state.config
+        if dh_id not in cfg_obj.digital_humans:
+            raise HTTPException(404, "unknown_dh")
+        enabled = body.get("enabled")
+        if not isinstance(enabled, list) or not all(
+            isinstance(s, str) for s in enabled
+        ):
+            raise HTTPException(400, "body.enabled must be a list of strings")
+        unknown = [k for k in enabled if k not in cfg_obj.mcp_pool]
+        if unknown:
+            raise HTTPException(
+                400, f"unknown mcp_pool keys: {unknown}",
+            )
+
+        from myagent.yaml_writer import update_yaml
+
+        def _mutate(data: dict) -> dict:
+            dhs = data.setdefault("digital_humans", {})
+            dh_block = dhs.setdefault(dh_id, {})
+            dh_block["mcp_servers"] = list(enabled)
+            return data
+
+        await update_yaml(
+            request.app.state.config_path,
+            _mutate,
+            backup_dir=Path(cfg_obj.agent.data_dir) / "backups" / "yaml",
+        )
+        await _reload_config_in_place(request)
+        return {"status": "ok", "dh_id": dh_id, "enabled": list(enabled)}
+
+    @app.get("/api/mcp_pool", dependencies=[Depends(verify_auth)])
+    async def get_mcp_pool(request: Request):
+        pool = {k: v.model_dump() for k, v in request.app.state.config.mcp_pool.items()}
+        return pool
+
+    # ---------- /model ----------
+
+    @app.get("/api/digital_humans/{dh_id}/model", dependencies=[Depends(verify_auth)])
+    async def get_dh_model(dh_id: str, request: Request):
+        cfg_obj = request.app.state.config
+        entry = cfg_obj.digital_humans.get(dh_id)
+        if entry is None:
+            raise HTTPException(404, "unknown_dh")
+        provider = entry.provider or "codex"
+        if provider == "codex":
+            global_default = cfg_obj.codex.model or ""
+        elif provider == "claude":
+            # Claude has no explicit "model" setting; binary/args implicit.
+            global_default = getattr(cfg_obj.claude, "model", "") or ""
+        else:
+            global_default = ""
+        return {
+            "current": entry.model or "",
+            "provider": provider,
+            "global_default": global_default,
+        }
+
+    @app.put("/api/digital_humans/{dh_id}/model", dependencies=[Depends(verify_auth)])
+    async def put_dh_model(dh_id: str, body: dict, request: Request):
+        cfg_obj = request.app.state.config
+        if dh_id not in cfg_obj.digital_humans:
+            raise HTTPException(404, "unknown_dh")
+        model = body.get("model")
+        if not isinstance(model, str):
+            raise HTTPException(400, "body.model must be a string (may be empty)")
+
+        from myagent.yaml_writer import update_yaml
+
+        def _mutate(data: dict) -> dict:
+            dhs = data.setdefault("digital_humans", {})
+            dh_block = dhs.setdefault(dh_id, {})
+            dh_block["model"] = model
+            return data
+
+        await update_yaml(
+            request.app.state.config_path,
+            _mutate,
+            backup_dir=Path(cfg_obj.agent.data_dir) / "backups" / "yaml",
+        )
+        await _reload_config_in_place(request)
+        return {"status": "ok", "dh_id": dh_id, "model": model}
+
+    # ---------- /prompt ----------
+
+    @app.get("/api/digital_humans/{dh_id}/prompt", dependencies=[Depends(verify_auth)])
+    async def get_dh_prompt_template(dh_id: str, request: Request):
+        cfg_obj = request.app.state.config
+        if dh_id not in cfg_obj.digital_humans:
+            raise HTTPException(404, "unknown_dh")
+        persona_root = Path(cfg_obj.agent.persona_dir) if cfg_obj.agent.persona_dir \
+            else Path(cfg_obj.agent.data_dir) / "persona"
+        dh_dir = persona_root / dh_id
+        dh_dir.mkdir(parents=True, exist_ok=True)
+        prompt_path = dh_dir / "prompt.md"
+        if not prompt_path.exists():
+            prompt_path.write_text("", encoding="utf-8")
+        text = prompt_path.read_text(encoding="utf-8")
+        import re
+        variables = sorted(set(re.findall(r"\{(\w+)\}", text)))
+        return {"template": text, "variables": variables}
+
+    @app.put("/api/digital_humans/{dh_id}/prompt", dependencies=[Depends(verify_auth)])
+    async def put_dh_prompt_template(dh_id: str, body: dict, request: Request):
+        cfg_obj = request.app.state.config
+        if dh_id not in cfg_obj.digital_humans:
+            raise HTTPException(404, "unknown_dh")
+        template = body.get("template")
+        if not isinstance(template, str):
+            raise HTTPException(400, "body.template must be a string")
+        persona_root = Path(cfg_obj.agent.persona_dir) if cfg_obj.agent.persona_dir \
+            else Path(cfg_obj.agent.data_dir) / "persona"
+        dh_dir = persona_root / dh_id
+        dh_dir.mkdir(parents=True, exist_ok=True)
+        (dh_dir / "prompt.md").write_text(template, encoding="utf-8")
+        import re
+        variables = sorted(set(re.findall(r"\{(\w+)\}", template)))
+        return {"status": "ok", "dh_id": dh_id, "size": len(template),
+                "variables": variables}
 
     # ------------------------------------------------------------------
     # Agent Self-Report API (Phase 3)

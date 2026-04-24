@@ -21,6 +21,7 @@ from typing import Callable, Awaitable
 from myagent.ai_provider import AIProvider
 from myagent.config import SurvivalSettings, ClaudeSettings
 from myagent.db import Database
+from myagent.dh_config import augment_codex_cmd, resolve
 from myagent.feishu import FeishuClient
 
 logger = logging.getLogger(__name__)
@@ -53,6 +54,7 @@ class SurvivalEngine:
         knowledge_engine=None,
         provider: AIProvider | None = None,
         dh_registry=None,
+        agent_config=None,
     ) -> None:
         self._db = db
         self._claude = claude_settings
@@ -63,6 +65,7 @@ class SurvivalEngine:
         self._server_port = server_port
         self._knowledge_engine = knowledge_engine
         self._dh_registry = dh_registry  # S1: when provided, mint DH token on start
+        self._agent_config = agent_config  # DH Sovereignty: resolve per-DH flags
         self._running = False
         self._workspace = Path(settings.workspace)
         # Provider-driven CLI launch; fall back to a Claude provider to keep
@@ -678,6 +681,24 @@ class SurvivalEngine:
         self._ai_session_id = self._claude_session_id
 
         launch = self._provider.build_launch(self._ai_session_id)
+        # DH Sovereignty: augment launch.cmd with per-DH -c flags when a
+        # full AgentConfig was provided. Missing config or missing "executor"
+        # entry is non-fatal — the provider's own flags still apply, matching
+        # pre-sovereignty behavior.
+        launch_cmd = launch.cmd
+        if self._agent_config is not None:
+            try:
+                resolved = resolve(self._agent_config, "executor")
+                if resolved.provider == "codex":
+                    global_codex_model = getattr(
+                        getattr(self._agent_config, "codex", None), "model", ""
+                    ) or ""
+                    launch_cmd = augment_codex_cmd(
+                        launch.cmd, resolved, global_codex_model
+                    )
+                self._resolved = resolved
+            except KeyError:
+                pass
         if launch.is_resume:
             await self._log("start", f"[{self._provider.name}] 恢复会话: {self._ai_session_id}")
         else:
@@ -705,7 +726,7 @@ class SurvivalEngine:
         ]
         if token:
             exports.append(f"export MYAGENT_TOKEN={token}")
-        shell_cmd = "; ".join(exports) + f"; exec {launch.cmd}"
+        shell_cmd = "; ".join(exports) + f"; exec {launch_cmd}"
 
         code, out = await self._cmux(
             "new-workspace",
