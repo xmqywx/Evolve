@@ -45,6 +45,8 @@ class _FakeConfig:
         self.codex = type("C", (), {"binary": "echo", "default_cwd": data_dir,
                                     "args": [], "model": "", "profile": "",
                                     "sessions_dir": "~/.codex/sessions"})()
+        self.survival = type("S", (), {"workspace": data_dir, "enabled": True,
+                                       "provider": "codex", "notify_feishu": False})()
         self.digital_humans = {
             "observer": DHConfig(
                 id="observer",

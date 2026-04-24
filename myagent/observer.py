@@ -124,10 +124,15 @@ class ObserverEngine:
         ]
         shell_cmd = "; ".join(exports) + f"; exec {launch.cmd}"
 
+        # Use dedicated observer workspace dir (sibling of survival's workspace).
+        # Falls back to survival.workspace if the observer subdir doesn't exist.
+        obs_workspace = Path(self.config.survival.workspace) / "observer"
+        obs_workspace.mkdir(parents=True, exist_ok=True)
+
         code, out = await self._cmux(
             "new-workspace",
             "--name", cfg.cmux_session,
-            "--cwd", self.config.agent.data_dir,
+            "--cwd", str(obs_workspace),
             "--command", shell_cmd,
         )
         if code != 0:
@@ -308,10 +313,12 @@ class ObserverEngine:
             f"export MYAGENT_DH_TOKEN={token}; "
             f"exec {launch.cmd}"
         )
+        obs_workspace = Path(self.config.survival.workspace) / "observer"
+        obs_workspace.mkdir(parents=True, exist_ok=True)
         code, out = await self._cmux(
             "new-workspace",
             "--name", cfg.cmux_session,
-            "--cwd", self.config.agent.data_dir,
+            "--cwd", str(obs_workspace),
             "--command", shell_cmd,
         )
         if code != 0:
