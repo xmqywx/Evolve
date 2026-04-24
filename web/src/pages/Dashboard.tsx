@@ -28,6 +28,7 @@ import {
 import { apiFetch } from '../utils/api';
 import { useWebSocket } from '../hooks/useWebSocket';
 import type { Session, Task, StatusInfo, MemoryStats, AgentHeartbeat, AgentStats } from '../utils/types';
+import DHStatusStrip from '../components/DHStatusStrip';
 
 /* ─── Survival project types ─── */
 interface SurvivalProject {
@@ -218,6 +219,9 @@ export default function DashboardPage() {
           <RefreshCw size={16} className="animate-spin" style={{ color: 'var(--text-muted)' }} />
         )}
       </div>
+
+      {/* Digital Human status strip (S1 multi-DH) */}
+      <DHStatusStrip />
 
       {/* Stats Grid */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">

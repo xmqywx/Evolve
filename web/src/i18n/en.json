@@ -1,6 +1,7 @@
 {
   "sidebar": {
     "dashboard": "Dashboard",
+    "digitalHumans": "Digital Humans",
     "chat": "AI Chat",
     "sessions": "Sessions",
     "survival": "Survival Engine",

@@ -17,6 +17,7 @@ import SupervisorPage from './pages/Supervisor';
 import KnowledgePage from './pages/Knowledge';
 import ExtensionsPage from './pages/Extensions';
 import SettingsPage from './pages/Settings';
+import DigitalHumansPage from './pages/DigitalHumans';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (!isLoggedIn()) return <Navigate to="/login" replace />;
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="supervisor" element={<SupervisorPage />} />
         <Route path="knowledge" element={<KnowledgePage />} />
         <Route path="extensions" element={<ExtensionsPage />} />
+        <Route path="digital_humans" element={<DigitalHumansPage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
     </Routes>

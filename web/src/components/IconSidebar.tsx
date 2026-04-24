@@ -21,6 +21,7 @@ import {
   FileEdit,
   ChevronsLeft,
   ChevronsRight,
+  Users,
 } from 'lucide-react';
 import ThemeToggle from './ThemeToggle';
 import { logout } from '../utils/api';
@@ -33,6 +34,7 @@ interface NavItem {
 
 const navItems: NavItem[] = [
   { path: '/', icon: <LayoutDashboard size={20} />, labelKey: 'sidebar.dashboard' },
+  { path: '/digital_humans', icon: <Users size={20} />, labelKey: 'sidebar.digitalHumans' },
   { path: '/survival', icon: <Flame size={20} />, labelKey: 'sidebar.survival' },
   { path: '/output', icon: <Package size={20} />, labelKey: 'sidebar.output' },
   { path: '/workflows', icon: <Zap size={20} />, labelKey: 'sidebar.workflows' },

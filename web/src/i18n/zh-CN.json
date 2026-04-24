@@ -1,6 +1,7 @@
 {
   "sidebar": {
     "dashboard": "控制台",
+    "digitalHumans": "数字人",
     "chat": "AI 对话",
     "sessions": "会话",
     "survival": "生存引擎",
