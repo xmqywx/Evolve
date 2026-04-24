@@ -174,10 +174,13 @@ class ObserverEngine:
     async def _loop(self):
         cfg = self.config.digital_humans.get(DH_ID)
         interval = cfg.heartbeat_interval_secs if cfg else 1800
-        # Initial kick: send identity prompt shortly after startup so the LLM
-        # has context before its first heartbeat.
+        # Initial kick: send identity prompt after codex TUI is ready.
+        # Previously used a fixed 5s sleep; codex's trust prompt or slow
+        # TUI init caused workspace death before we sent, leading to
+        # 'Workspace not found' errors (see S1 day-0 log).
         try:
-            await asyncio.sleep(5)
+            if self._running:
+                await self._wait_for_cmux_ready(max_secs=30)
             if self._running:
                 await self._send_initial_prompt()
         except Exception:
@@ -211,6 +214,49 @@ class ObserverEngine:
         if persona_path.exists():
             identity = persona_path.read_text(encoding="utf-8")[:CONTEXT_CAP_BYTES]
             await self._send_to_cmux(identity)
+
+    async def _wait_for_cmux_ready(self, max_secs: int = 30):
+        """Poll cmux capture-pane until codex TUI appears to be up.
+
+        Catches: trust prompt still showing, codex not yet rendered, or
+        workspace already dead (returns early, _single_iteration will
+        trigger crash handler on next send).
+        """
+        if not self._workspace_id:
+            return
+        start = time.time()
+        # Indicators that codex TUI is ready to receive input
+        ready_markers = ("OpenAI Codex", "codex", "model:", "› ", "❯ ")
+        trust_marker = "trust the contents"
+        while time.time() - start < max_secs:
+            if not self._running:
+                return
+            code, out = await self._cmux(
+                "capture-pane", "--workspace", self._workspace_id
+            )
+            if code != 0:
+                # Workspace likely died — give up, main loop will detect
+                return
+            lower = out.lower()
+            if trust_marker in lower:
+                # Trust dialog showing; press "1" + Enter once and wait
+                logger.info("observer: codex showing trust dialog, auto-accepting")
+                await self._cmux("send-key", "--workspace", self._workspace_id, "1")
+                await asyncio.sleep(0.3)
+                await self._cmux(
+                    "send-key", "--workspace", self._workspace_id, "Enter"
+                )
+                await asyncio.sleep(2)
+                continue
+            if any(m.lower() in lower for m in ready_markers):
+                logger.info("observer: codex TUI ready after %.1fs", time.time() - start)
+                return
+            await asyncio.sleep(1)
+        logger.warning(
+            "observer: codex TUI didn't reach ready markers in %ds; "
+            "proceeding anyway",
+            max_secs,
+        )
 
     async def _build_context(self) -> dict:
         """Assemble context from DB + git log for the next LLM turn."""
