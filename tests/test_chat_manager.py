@@ -210,17 +210,10 @@ async def client(config_yaml):
 
 
 class TestChatEndpoints:
-    @pytest.mark.asyncio
-    async def test_chat_history_empty(self, client):
-        resp = await client.get("/api/chat/history")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    @pytest.mark.asyncio
-    async def test_chat_sessions_empty(self, client):
-        resp = await client.get("/api/chat/sessions")
-        assert resp.status_code == 200
-        assert resp.json() == []
+    # test_chat_history_empty and test_chat_sessions_empty were deleted:
+    # the /api/chat/history and /api/chat/sessions routes they tested do
+    # not exist in server.py (V2 replaced them with different endpoints).
+    # Keeping them as @skip would just hide the obsolete reference.
 
     @pytest.mark.asyncio
     async def test_survival_projects_crud(self, client):
