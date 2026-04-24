@@ -330,11 +330,12 @@ async def create_app(config_path: str) -> FastAPI:
         except Exception:
             logger.exception("Failed to summarize task %s", task_id)
 
-    # Context manager — read executor's persona subdir (S1 multi-DH: persona
-    # is split into per-DH subdirectories; scheduler runs tasks on behalf of
-    # the executor DH).
+    # Context manager — S1 multi-DH: scheduler runs tasks on behalf of the
+    # executor DH, so resolve persona from persona/<executor>/ via the
+    # digital_human_id kwarg. Falls back to flat persona_dir if no DH id.
     context_manager = ContextManager(
-        persona_dir=str(Path(config.agent.persona_dir) / "executor"),
+        persona_dir=config.agent.persona_dir,
+        digital_human_id="executor",
     ) if config.agent.persona_dir else None
 
     scheduler = Scheduler(

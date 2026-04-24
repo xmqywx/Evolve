@@ -13,8 +13,24 @@ DEFAULT_TOKEN_BUDGET = 8000  # Tokens reserved for context injection
 
 
 class ContextManager:
-    def __init__(self, persona_dir: str, token_budget: int = DEFAULT_TOKEN_BUDGET) -> None:
-        self._persona_dir = Path(persona_dir)
+    def __init__(
+        self,
+        persona_dir: str,
+        token_budget: int = DEFAULT_TOKEN_BUDGET,
+        digital_human_id: str | None = None,
+    ) -> None:
+        """Persona loader for scheduled tasks.
+
+        Historically `persona_dir` pointed directly at the persona files.
+        S1 multi-DH: pass `digital_human_id` and give `persona_dir` as the
+        persona root (parent of per-DH subdirs); the loader reads
+        `<persona_dir>/<digital_human_id>/<file>`.
+        For backward compat, if `digital_human_id` is None, files are read
+        from `persona_dir` directly as before.
+        """
+        base = Path(persona_dir)
+        self._persona_dir = base / digital_human_id if digital_human_id else base
+        self._digital_human_id = digital_human_id
         self._token_budget = token_budget
         self._persona_cache: dict[str, str] = {}
 
