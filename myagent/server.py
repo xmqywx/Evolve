@@ -2201,13 +2201,18 @@ async def run_server(config_path: str) -> None:
     app.state.cron_scheduler = cron_sched
     cron_task = cron_sched.start()
 
-    # Register existing survival tmux session (don't auto-start watchdog; user controls via UI)
+    # Register existing survival cmux workspace if it survived a backend restart.
     if config.survival.enabled:
         async def _check_survival():
-            exists = await app.state.survival_engine._tmux_session_exists()
-            if exists:
-                logger.info("Existing survival tmux session found, registering")
-                _register_tmux_session(app.state.session_registry, "survival", "生存引擎", "#ff4d4f")
+            try:
+                engine = app.state.survival_engine
+                if not engine._cmux_workspace_id:
+                    engine._cmux_workspace_id = engine._load_workspace_id()
+                if await engine._cmux_workspace_exists():
+                    logger.info("Existing survival cmux workspace found, registering")
+                    _register_tmux_session(app.state.session_registry, "survival", "生存引擎", "#ff4d4f")
+            except Exception:
+                logger.exception("Survival reconnect probe failed")
         asyncio.create_task(_check_survival())
 
     # Register existing chat tmux session if it's already running
