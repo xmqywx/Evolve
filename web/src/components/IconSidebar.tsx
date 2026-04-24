@@ -3,8 +3,6 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import {
   LayoutDashboard,
-  MessageSquare,
-  Monitor,
   Flame,
   Package,
   Zap,

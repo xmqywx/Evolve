@@ -60,11 +60,8 @@ export default function DigitalHumansPage() {
   const fetchDhs = useCallback(async () => {
     setLoading(true);
     try {
-      const resp = await apiFetch('/api/digital_humans');
-      if (resp.ok) {
-        const data: DHEntry[] = await resp.json();
-        setDhs(data);
-      }
+      const data = await apiFetch<DHEntry[]>('/api/digital_humans');
+      setDhs(data);
     } finally {
       setLoading(false);
     }

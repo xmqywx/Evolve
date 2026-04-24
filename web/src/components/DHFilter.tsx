@@ -25,9 +25,7 @@ export default function DHFilter({ value, onChange }: Props) {
   useEffect(() => {
     (async () => {
       try {
-        const resp = await apiFetch('/api/digital_humans');
-        if (!resp.ok) return;
-        const data: DHSummary[] = await resp.json();
+        const data = await apiFetch<DHSummary[]>('/api/digital_humans');
         setDhs(data.map((d) => d.id));
       } catch {
         // silently ignore — DH filter is enhancement, not required

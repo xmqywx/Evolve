@@ -34,20 +34,16 @@ export default function DHStatusStrip() {
   useEffect(() => {
     const fetchAll = async () => {
       try {
-        const resp = await apiFetch('/api/digital_humans');
-        if (!resp.ok) return;
-        const data: DHEntry[] = await resp.json();
+        const data = await apiFetch<DHEntry[]>('/api/digital_humans');
         setDhs(data);
         // Fetch latest heartbeat for each DH
         const hbMap: Record<string, LatestHeartbeat> = {};
         for (const dh of data) {
           try {
-            const hbResp = await apiFetch(
+            const hb = await apiFetch<LatestHeartbeat>(
               `/api/agent/heartbeat?latest=true&digital_human_id=${encodeURIComponent(dh.id)}`,
             );
-            if (hbResp.ok) {
-              hbMap[dh.id] = await hbResp.json();
-            }
+            hbMap[dh.id] = hb;
           } catch {
             // ignore
           }

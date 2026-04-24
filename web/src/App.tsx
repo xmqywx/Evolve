@@ -3,7 +3,6 @@ import { isLoggedIn } from './utils/api';
 import Layout from './components/Layout';
 import LoginPage from './pages/Login';
 import DashboardPage from './pages/Dashboard';
-import SessionsPage from './pages/Sessions';
 import TasksPage from './pages/Tasks';
 import MemoryPage from './pages/Memory';
 import SurvivalPage from './pages/Survival';
