@@ -34,3 +34,23 @@ Started: 2026-04-24
 - No error log entries beyond the initial codex-trust-prompt fix
 
 **Status: Day 0 GREEN** — Observer is live, auth enforced, isolation enforced, dedup working. Day 1-7 counter starts now.
+
+## Round 1 — 2026-04-24T21:23 CST (cold-start Executor)
+
+**Setup**
+- Killed both stale "生存引擎" workspaces (4137D5BD, C68670C1)
+- Removed `/Users/ying/Documents/workspace/.cmux_workspace_id`
+- POST `/api/survival/start` to trigger fresh SurvivalEngine.start()
+
+**Results**
+- ✅ SurvivalEngine.start() ran full path, `issue_token(registry, "executor")` fired
+- ✅ `digital_humans/executor/state.json` now has `auth_token_hash: sha256:aba82a5b...`
+- ✅ Cold executor heartbeat via DH token `eT_Cc3TE...` succeeded → DB id=183 tagged executor
+- ✅ state.json `last_heartbeat_at` populated
+- ✅ New "生存引擎" workspace 4397A486 alive
+
+**Unprompted bonus**
+- Observer at 21:23 posted REAL LLM-generated heartbeat (DB id=182):
+  `"Observer context refreshed; no actionable discovery signal available in provided context."`
+- This is codex (not my curl) — Observer's 30-min timer fired and the LLM responded.
+- Note: I never saw Observer's first natural timer fire until now; that answers the P1 gap from day-0.
