@@ -498,13 +498,13 @@ async def create_app(config_path: str) -> FastAPI:
                 content = ""
                 msg_data = m.get("message", {})
                 if isinstance(msg_data, dict):
-                    c = msg_data.get("content", "")
+                    c = msg_data.get("content") or ""
                     if isinstance(c, str):
                         content = c[:100]
                     elif isinstance(c, list):
                         for block in c:
                             if isinstance(block, dict) and block.get("type") == "text":
-                                content = block.get("text", "")[:100]
+                                content = (block.get("text") or "")[:100]
                                 break
                 lines.append(f"[{role}] {content}")
             return "\n".join(lines)
@@ -1225,7 +1225,7 @@ async def create_app(config_path: str) -> FastAPI:
             if not description and pkg.exists():
                 try:
                     import json as _json
-                    description = _json.loads(pkg.read_text()).get("description", "")[:200]
+                    description = (_json.loads(pkg.read_text()).get("description") or "")[:200]
                 except Exception:
                     pass
             file_count = sum(1 for f in d.rglob("*") if f.is_file() and ".git" not in f.parts)
