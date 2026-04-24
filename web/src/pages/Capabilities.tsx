@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { AgentUpgrade } from '../utils/types';
+import DHFilter from '../components/DHFilter';
 
 interface Capability {
   key: string;
@@ -96,6 +97,7 @@ export default function CapabilitiesPage() {
   const [upgrades, setUpgrades] = useState<AgentUpgrade[]>([]);
   const [upgradesLoading, setUpgradesLoading] = useState(true);
   const [configLoaded, setConfigLoaded] = useState(false);
+  const [dhFilter, setDhFilter] = useState<string | null>(null);
 
   const fetchConfig = useCallback(async () => {
     try {
@@ -119,12 +121,14 @@ export default function CapabilitiesPage() {
   const fetchUpgrades = useCallback(async () => {
     setUpgradesLoading(true);
     try {
-      const data = await apiFetch<AgentUpgrade[]>('/api/agent/upgrades?limit=50');
+      let url = '/api/agent/upgrades?limit=50';
+      if (dhFilter) url += `&digital_human_id=${encodeURIComponent(dhFilter)}`;
+      const data = await apiFetch<AgentUpgrade[]>(url);
       setUpgrades(data);
     } catch { /* */ } finally {
       setUpgradesLoading(false);
     }
-  }, []);
+  }, [dhFilter]);
 
   useEffect(() => { fetchConfig(); fetchUpgrades(); }, [fetchConfig, fetchUpgrades]);
 
@@ -254,7 +258,7 @@ export default function CapabilitiesPage() {
       </div>
 
       <div className="space-y-2">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-2">
           <h2 className="text-sm font-medium" style={{ color: 'var(--text-muted)' }}>
             {t('capabilities.upgradeProposals')}
             {pendingUpgrades.length > 0 && (
@@ -266,6 +270,7 @@ export default function CapabilitiesPage() {
               </span>
             )}
           </h2>
+          <DHFilter value={dhFilter} onChange={setDhFilter} />
           <button
             onClick={fetchUpgrades}
             className="p-1 rounded-md"

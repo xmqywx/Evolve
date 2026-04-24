@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { AgentWorkflow, WorkflowRun } from '../utils/types';
+import DHFilter from '../components/DHFilter';
 
 const METHOD_ICONS: Record<string, React.ElementType> = {
   script: FileCode,
@@ -68,16 +69,19 @@ export default function WorkflowsPage() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
   const [runs, setRuns] = useState<Record<number, WorkflowRun[]>>({});
+  const [dhFilter, setDhFilter] = useState<string | null>(null);
 
   const fetchWorkflows = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiFetch<AgentWorkflow[]>('/api/agent/workflows?limit=100');
+      let url = '/api/agent/workflows?limit=100';
+      if (dhFilter) url += `&digital_human_id=${encodeURIComponent(dhFilter)}`;
+      const data = await apiFetch<AgentWorkflow[]>(url);
       setWorkflows(data);
     } catch { /* */ } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dhFilter]);
 
   useEffect(() => { fetchWorkflows(); }, [fetchWorkflows]);
 
@@ -125,9 +129,10 @@ export default function WorkflowsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-2">
         <h1 className="text-xl font-semibold">{t('workflows.title')}</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <DHFilter value={dhFilter} onChange={setDhFilter} />
           <span className="text-xs" style={{ color: 'var(--text-muted)' }}>
             {t('workflows.enabledTotal', { enabled: enabledWorkflows.length, total: workflows.length })}
           </span>
