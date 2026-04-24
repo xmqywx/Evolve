@@ -104,20 +104,33 @@ Evidence per task:
 | T10 | ObserverEngine wired in lifespan + admin dh_token endpoint | ✅ | `ed9afd0` | lifecycle ok |
 | T11 | DHFilter component + list endpoints accept ?digital_human_id= | ✅ | `405e724` | 224 suite pass |
 | T12/T13 | /digital_humans page + Dashboard strip + sidebar | ✅ | `61435e9` | tsc clean |
-| T14 | Validation scaffolding (daily + exit scripts + rating sink) | ✅ | _this commit_ | — |
-| T14-live | **7-day live validation window** | ⬜ | — | **pending run** |
+| T14 | Validation scaffolding (daily + exit scripts + rating sink) | ✅ | `3ba0624` | — |
+| T14-day-0 | Observer flipped on + service restarted + 6/6 red-team pass | ✅ | `135cc8e` | Live verified 2026-04-24 20:49 |
+| T14-automation | launchd agent installed for daily 23:55 auto-check | ✅ | `72bcd1b` | Dry-run OK |
+| T14-live-7d | **7-day live validation window** | 🚧 | — | Day 0 passed; day 1-7 gathering real observer discoveries |
 
 Full test suite at completion of code: **224 pass / 2 pre-existing failures / 19 skipped**.
 
-### To start live validation
+### Live validation status
 
-1. Set `digital_humans.observer.enabled: true` in `config.yaml`
-2. `launchctl kickstart -k gui/$UID/com.ying.myagent`
-3. Verify both cmux sessions exist: `cmux list-workspaces | grep mycmux`
-4. Day 1–7: `bash scripts/s1_daily_check.sh >> docs/s1-daily-log.md` once per day
-5. Day 7: `bash scripts/s1_exit_check.sh`
-6. Fill `docs/observer-rating-s1.md` with 20 random discoveries + rate
-7. If all exit criteria pass → brainstorm S2 (Planner + Conductor)
+✅ **Day 0 passed 2026-04-24 20:49 CST** — see `docs/s1-daily-log.md`
+✅ launchd agent `com.ying.myagent.s1check` installed — runs daily 23:55
+🚧 Day 1–7 in progress — auto-appends to `docs/s1-daily-log.md`
+
+### When validation window ends (day 7)
+
+1. Run `bash scripts/s1_exit_check.sh` manually
+2. Fill `docs/observer-rating-s1.md` with 20 random discoveries + rate (Ying)
+3. If all exit criteria pass → brainstorm S2 (Planner + Conductor)
+4. If any fail → diagnose, extend window, re-run exit_check
+
+### To toggle observer off mid-window (rollback)
+
+```bash
+# Edit config.yaml: digital_humans.observer.enabled: false
+launchctl kickstart -k "gui/$UID/com.ying.myagent"
+# Verify: cmux list-workspaces | grep mycmux-observer  # should be empty
+```
 
 ---
 
