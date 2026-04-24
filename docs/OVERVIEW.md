@@ -186,28 +186,41 @@ Workflows = agent's **self-authored skill library**. The agent designs a repeata
 
 ### 5.1 Data model
 
-`agent_workflows` (redesigned, see `specs/2026-03-14-workflow-v2-design.md` for full migration):
-- `id`, `name`, `description`
-- `trigger` (manual / scheduled / on_event), `trigger_config` (cron, event name)
-- `steps` (JSON array of step objects)
-- `enabled` (bool, default false for agent-authored)
-- `created_by` (agent / user)
-- `last_run_at`, `last_run_status`
-- `version` (incremented on edit)
+`agent_workflows` (redesigned, see `specs/2026-03-14-workflow-v2-design.md § 3.1` for the authoritative table DDL):
 
-**Step object**:
+| Column | Type | Purpose |
+|--------|------|---------|
+| `id` | INT PK | |
+| `name`, `description` | TEXT | User-facing labels |
+| `trigger` | enum(`manual`/`scheduled`/`on_event`) | |
+| `trigger_config` | JSON | cron expr / event name |
+| `steps` | JSON | Array of Step objects (below) |
+| `enabled` | BOOL | Default `false` for agent-authored |
+| `created_by` | enum(`agent`/`user`) | |
+| `last_run_at`, `last_run_status` | | Latest execution summary |
+| `version` | INT | Incremented on edit |
+
+**Step object** (canonical fields from spec §3.2):
+
 ```json
 {
-  "id": "step-1",
-  "action": "web_search | write_article | save_deliverable | run_shell | llm_call | ...",
-  "params": { /* action-specific */ },
-  "on_success": "step-2",
-  "on_failure": "abort | continue | retry"
+  "name": "生成数字人视频",
+  "description": "用 HeyGen API 生成口播视频",
+  "method": "script | api | shell | llm_call",
+  "script_path": "/survival_workspace/scripts/heygen_generate.py",
+  "command": "python heygen_generate.py --template {template_id} --text {script_text}",
+  "api_endpoint": "https://api.heygen.com/v2/video/generate",
+  "params_template": {"template_id": "xxx", "script_text": "{input}"},
+  "credentials_needed": ["HEYGEN_API_KEY"],
+  "expected_output": "视频文件路径",
+  "fallback_instructions": "如果脚本失败，手动到 heygen.com 操作..."
 }
 ```
 
-`agent_workflow_runs` (new):
-- `id`, `workflow_id`, `version`, `trigger_type`
+The spec treats a step as a self-describing "skill recipe" the agent can execute or, on failure, hand back to Ying with fallback instructions. Not a rigid DAG (no `on_success`/`on_failure` fields) — execution is sequential by array index.
+
+`agent_workflow_runs` (new, see spec §3.3 for full DDL):
+- `id`, `workflow_id`, `workflow_version`, `trigger_type`
 - `started_at`, `finished_at`, `status` (running / success / failed / cancelled)
 - `step_results` (JSON array of per-step outcome + output + tokens)
 - `error_message`
@@ -235,21 +248,31 @@ The knowledge hub is **the agent's persistent learned experience**, distilled fr
 Prompt composed from:
 1. **Identity + rules** (~400 chars, from `persona/identity.md` + `principles.md`)
 2. **API cheatsheet** (~800 chars, variable-templated)
-3. **Knowledge base** (~5000–6500 chars, three-tier injection):
-   - Core lessons (strict rules)
-   - Recently learned
-   - Task-relevant excerpts
+3. **Knowledge base** (~5000–6500 chars, three-layer injection — `layer` field in DB):
+   - `permanent` — core lessons / strict rules
+   - `recent` — recently learned
+   - `task` — task-relevant excerpts
 
 Plus: current task env (~1000 chars), capability/behavior config (~500 chars), start directive (~100 chars).
 
 ### 6.2 Data model
 
-`knowledge_base` table:
-- `id`, `category` (lesson / api / insight / rule / skill), `title`, `content`
-- `source` (review / discovery / manual)
-- `source_ref` (FK to agent_reviews.id or agent_discoveries.id)
-- `tier` (core / recent / contextual)
-- `created_at`, `last_used_at`, `use_count`
+`knowledge_base` table (see `specs/2026-03-15-knowledge-hub-design.md § 四` for authoritative DDL):
+
+| Column | Type | Values / Notes |
+|--------|------|----------------|
+| `id` | INT PK | |
+| `content` | TEXT | The knowledge entry body |
+| `category` | TEXT | `lesson` / `discovery` / `skill` / `insight` |
+| `source` | TEXT | `review` / `discovery_api` / `plan_scan` / `session_analysis` / `manual` |
+| `source_id` | TEXT | FK to originating record |
+| `layer` | TEXT | `permanent` / `recent` / `task` (injection tier) |
+| `tags` | JSON | String array |
+| `score` | REAL | 0-10 importance, default 5.0 |
+| `use_count` | INT | Increments on prompt-time retrieval |
+| `created_at`, `last_used_at` | TS | |
+
+Note: the spec's `layer` field corresponds to the "three-tier injection" concept in § 6.1 (permanent = core lessons, recent = recently learned, task = contextual to current task).
 
 ### 6.3 KnowledgeEngine module (`myagent/knowledge.py`)
 

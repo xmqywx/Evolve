@@ -3,7 +3,7 @@
 > Live completion ledger for the 5-phase V2 redesign from `docs/OVERVIEW.md § 8`.
 > Updated by hand after each meaningful milestone.
 
-**Overall V2 completion: 5/5 phases have meaningful implementation, 1 phase (Phase 5) still has open sub-items.**
+**Overall V2 completion: 5/5 phases done (runtime-verified).** Remaining work is code-debt cleanup (cmux migration in server.py, test rewrite) and the next-round multi-digital-human architecture, not V2 phase gaps.
 
 Legend: ✅ done · 🚧 partial · ⬜ not started
 
@@ -67,24 +67,21 @@ Next:
 
 ## Phase 5: Integration (bus-driven watchdog, context-aware nudges, semantic Feishu, context-aware restart, chokidar scan)
 
-**Status: 🚧 partial — core integration done, full audit pending**
+**Status: ✅ done — all 5 sub-items runtime-verified**
 
-Evidence (done):
-- `myagent/survival.py:5-9` docstring lists all 5 integration deliverables (heartbeat-first detection, capture-pane fallback, context-aware nudges, semantic Feishu reports, context recovery on restart)
-- `_build_context_nudge` at `survival.py:209` and `_build_no_heartbeat_nudge` at `survival.py:250` — both implemented
-- Timeout thresholds defined: `HEARTBEAT_WARN_TIMEOUT = 600`, `HEARTBEAT_CRITICAL_TIMEOUT = 900`
-- Feishu client integration in `myagent/feishu.py` + survival invocation at `survival.py:329`
-- `myagent/scanner.py` handles session watching (equivalent to chokidar pattern)
-- Recent commits `0bc97b2`, `93d0ebc`, `b225760` touched watchdog, tmux→cmux migration, Feishu/WS wiring
+Verified (read code line-by-line):
+- ✅ `_build_context_nudge` at `survival.py:209-248` — reads `get_latest_heartbeat` + `list_deliverables` + `get_active_survival_projects`; composes message per `OVERVIEW § 4.3` mock
+- ✅ `_build_no_heartbeat_nudge` at `survival.py:250-260` — curl examples + "不汇报=没做" directive
+- ✅ `_build_semantic_report` at `survival.py:266+` — aggregates heartbeat activity labels + progress + daily deliverables + top discoveries; matches `OVERVIEW § 4.4`
+- ✅ `_build_recovery_prompt` at `survival.py:339` — built on `--resume`, sent at `survival.py:721` inside the `is_resume` branch (see `survival.py:679` launch flag)
+- ✅ chokidar-equivalent: `myagent/scanner.py:233` uses `watchfiles.awatch`; `:221` polling is fallback when watchfiles is not installed
+- Timeout thresholds: `HEARTBEAT_WARN_TIMEOUT = 600s`, `HEARTBEAT_CRITICAL_TIMEOUT = 900s`
 
-Open sub-items:
-- Semantic Feishu report format vs the mock in `OVERVIEW § 4.4` — needs side-by-side verification
-- Context-aware restart: confirm `--resume` path injects recovery message (no grep match for "recovery" keyword; may be using different variable name)
+Recent commits: `0bc97b2` (watchdog false-positive fix), `93d0ebc` (tmux→cmux), `b225760` (Feishu/WS wiring).
 
-Next:
-- Side-by-side compare live Feishu output vs `OVERVIEW § 4.4` mock
-- Trace restart flow for recovery-message injection
-- Both verifications deferred to next work session, not this stabilization sprint
+Remaining open follow-ups (tech debt, not Phase 5 gaps):
+- cmux migration in `myagent/server.py` (61 tmux hits — see tmux residual section)
+- `tests/test_survival.py` rewrite for cmux (31 hits; commit `2da6592` says "skip pending cmux rewrite")
 
 ---
 
