@@ -1,5 +1,7 @@
 # MyAgent V2 - AI Control Plane Design Spec
 
+> **Status: Superseded** — See `docs/OVERVIEW.md §§ 1–4` for current design. This is the V2 main-trunk source; OVERVIEW is its merged/refined version. This file kept as implementation-detail reference.
+
 > Status: APPROVED (brainstorming phase)
 > Date: 2026-03-13
 > Scope: UI 重构 + Agent Self-Report API + 能力/工作流/产出管理

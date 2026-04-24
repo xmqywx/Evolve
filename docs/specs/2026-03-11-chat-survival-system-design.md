@@ -1,5 +1,7 @@
 # MyAgent 智能对话 + 生存引擎 设计文档
 
+> **Status: Superseded** — See `docs/OVERVIEW.md § 4 Survival Engine Upgrades` for current design. This file kept as implementation-detail reference. Note: tmux references in this file are legacy; current terminal is cmux (see `docs/ARCHITECTURE.md § 7`).
+
 > AI 分身的核心交互层和自主价值创造系统
 
 **日期**: 2026-03-11

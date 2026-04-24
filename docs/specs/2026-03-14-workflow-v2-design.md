@@ -1,5 +1,7 @@
 # Workflow V2 - Agent 自主技能库
 
+> **Status: Superseded** — See `docs/OVERVIEW.md § 5 Workflows Subsystem` for current design. This file kept as implementation-detail reference for table migration SQL, full API schemas, and UI mockups.
+
 > Status: APPROVED
 > Date: 2026-03-14
 > Scope: 工作流模块从"步骤展示"升级为"agent 可执行技能库"

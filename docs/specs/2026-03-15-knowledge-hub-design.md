@@ -1,5 +1,7 @@
 # 知识中枢 + Prompt 优化设计方案
 
+> **Status: Superseded** — See `docs/OVERVIEW.md § 6 Memory / Knowledge Hub` for current design. This file kept as implementation-detail reference for the extraction prompt template and three-layer injection structure.
+
 ## 一、概述
 
 将 MyAgent 从"监控系统"升级为"学习系统"。核心改动：

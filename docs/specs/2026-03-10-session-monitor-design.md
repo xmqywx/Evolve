@@ -1,5 +1,7 @@
 # Claude Session Monitor - Design Spec
 
+> **Status: Superseded** — See `docs/OVERVIEW.md § 7 Sessions & Monitoring` for current design. This file kept as implementation-detail reference.
+
 ## Goal
 
 MyAgent can discover, monitor, and display all Claude Code sessions running on the Mac, with real-time updates via WebSocket, a React Dashboard (mobile-friendly), and Feishu integration.
