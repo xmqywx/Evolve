@@ -169,15 +169,27 @@ def augment_codex_cmd(cmd: str, resolved: ResolvedDHConfig,
 def build_codex_mcp_flags(mcp_servers: list[dict]) -> list[str]:
     """Render resolved mcp_servers into codex `-c` override flags.
 
-    Codex reads MCP config via TOML keys like:
-        mcp_servers.<key>.command = "..."
-        mcp_servers.<key>.args    = ["..."]
-        mcp_servers.<key>.env.FOO = "..."
+    Codex `-c` override syntax (verified via `codex --help` and
+    `codex mcp add --help` on codex-cli 0.124.0):
 
-    # TODO verify mcp flag syntax against upstream codex CLI; this mirrors
-    # the shape used in ~/.codex/config.toml and the `-c dotted.key=value`
-    # override convention. If codex rejects list values via -c, we'll
-    # need to fall back to writing a per-DH profile file.
+        -c <dotted.key>=<toml_value>
+
+    where <toml_value> is parsed as TOML — strings need quotes, arrays
+    use bracket form, inline tables use `{...}`. MCP servers sit under
+    the `mcp_servers.<key>` table in ~/.codex/config.toml:
+
+        [mcp_servers.linear]
+        command = "npx"
+        args = ["-y", "mcp-linear"]
+        env = { LINEAR_API_KEY = "..." }
+
+    So the equivalent overrides are:
+        -c mcp_servers.linear.command="npx"
+        -c 'mcp_servers.linear.args=["-y","mcp-linear"]'
+        -c mcp_servers.linear.env.LINEAR_API_KEY="..."
+
+    (Note: env is rendered as individual scalar entries to avoid TOML
+    inline-table quoting pitfalls through the shell.)
     """
     flags: list[str] = []
     for entry in mcp_servers:

@@ -639,10 +639,42 @@ class SurvivalEngine:
     async def _build_identity_prompt(self, projects: list, profile: list) -> str:
         variables = await self._get_template_variables(projects, profile)
 
-        # Check for custom template in DB
-        config_map = await self._db.get_agent_config()
-        custom_template = config_map.get("survival_prompt", "")
-        template = custom_template if custom_template else self._get_default_template()
+        # Template precedence (DH Sovereignty):
+        #   1. persona/{executor}/prompt.md if set via dh.prompt_template_file
+        #      and file exists
+        #   2. DB agent_config["survival_prompt"] (legacy; dh-scoped to
+        #      executor if column present)
+        #   3. built-in default template
+        # All three run through .format(**variables) so {projects_text}
+        # etc. still substitute regardless of where the template text
+        # came from.
+        template: str = ""
+        if self._agent_config is not None:
+            try:
+                from myagent.dh_config import resolve
+                resolved = resolve(self._agent_config, "executor")
+                dh_entry = self._agent_config.digital_humans.get("executor")
+                override_file = dh_entry.prompt_template_file if dh_entry else ""
+                if override_file:
+                    candidate = Path(
+                        self._agent_config.agent.persona_dir
+                    ) / override_file if not Path(override_file).is_absolute() else Path(override_file)
+                    if candidate.exists():
+                        template = candidate.read_text(encoding="utf-8")
+                _ = resolved  # quiet unused
+            except Exception:
+                logger.exception("prompt_template_file resolution failed, falling back")
+
+        if not template:
+            # db.get_agent_config now accepts optional digital_human_id with
+            # NULL-fallback semantics; call executor-scoped which falls back
+            # to global row if no per-DH row exists.
+            try:
+                config_map = await self._db.get_agent_config(digital_human_id="executor")
+            except TypeError:
+                # Older signature without kwarg — fall back to legacy call
+                config_map = await self._db.get_agent_config()
+            template = config_map.get("survival_prompt", "") or self._get_default_template()
 
         try:
             return template.format(**variables)

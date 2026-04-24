@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from myagent.config import DigitalHumanEntry, MCPPoolEntry
-from myagent.dh_config import ResolvedDHConfig, resolve
+from myagent.dh_config import ResolvedDHConfig, build_codex_mcp_flags, resolve
 
 
 class _Cfg:
@@ -144,3 +144,49 @@ def test_resolve_default_observer_has_no_model_override(persona_root):
     # identity.md fallback (prompt_template_file empty)
     assert got.prompt_template_path is not None
     assert got.prompt_template_path.name == "identity.md"
+
+
+# ---- build_codex_mcp_flags (verified syntax 2026-04-25 via codex 0.124.0) ----
+
+
+def test_build_codex_mcp_flags_empty():
+    assert build_codex_mcp_flags([]) == []
+
+
+def test_build_codex_mcp_flags_command_only():
+    flags = build_codex_mcp_flags([
+        {"key": "linear", "command": "npx", "args": [], "env": {}},
+    ])
+    assert flags == ['-c mcp_servers.linear.command="npx"']
+
+
+def test_build_codex_mcp_flags_full_entry():
+    flags = build_codex_mcp_flags([
+        {
+            "key": "vercel",
+            "command": "npx",
+            "args": ["-y", "@vercel/mcp"],
+            "env": {"VERCEL_TOKEN": "abc123"},
+        },
+    ])
+    # Order: command, args array, env scalars
+    assert flags == [
+        '-c mcp_servers.vercel.command="npx"',
+        '-c mcp_servers.vercel.args=["-y","@vercel/mcp"]',
+        '-c mcp_servers.vercel.env.VERCEL_TOKEN="abc123"',
+    ]
+
+
+def test_build_codex_mcp_flags_skips_keyless_entry():
+    flags = build_codex_mcp_flags([{"command": "x"}])
+    assert flags == []
+
+
+def test_build_codex_mcp_flags_multiple_servers_independent():
+    flags = build_codex_mcp_flags([
+        {"key": "a", "command": "A", "args": [], "env": {}},
+        {"key": "b", "command": "B", "args": [], "env": {}},
+    ])
+    assert '-c mcp_servers.a.command="A"' in flags
+    assert '-c mcp_servers.b.command="B"' in flags
+    assert len(flags) == 2
