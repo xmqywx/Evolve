@@ -239,23 +239,33 @@ class ObserverEngine:
         }
 
     async def _render_prompt(self, ctx: dict) -> str:
+        # NOTE: use `(row.get(k) or '')` not `row.get(k, '')` — the latter
+        # only falls back when the key is missing, not when the value is
+        # explicitly None, which is what aiosqlite returns for NULL cells.
+        def _s(d: dict, key: str, cap: int) -> str:
+            v = d.get(key)
+            return (v or "")[:cap] if isinstance(v, str) else ""
+
         lines = [
             f"## Context refresh @ {ctx['now']}",
             "",
             "### Executor 最近 heartbeat",
         ]
         for hb in ctx["exec_heartbeats"]:
-            lines.append(f"- [{hb.get('activity','?')}] {hb.get('description','')[:100]}")
+            act = hb.get("activity") or "?"
+            lines.append(f"- [{act}] {_s(hb, 'description', 100)}")
         lines.append("")
         lines.append("### Executor 最近 deliverable")
         for dl in ctx["exec_deliverables"]:
-            lines.append(f"- [{dl.get('type','?')}] {dl.get('title','')[:80]}")
+            t = dl.get("type") or "?"
+            lines.append(f"- [{t}] {_s(dl, 'title', 80)}")
         lines.append("")
         lines.append("### 你最近发的 discovery (防重复)")
         for d in ctx["own_discoveries"]:
-            lines.append(f"- [{d.get('category','?')}] {d.get('title','')[:80]}")
+            c = d.get("category") or "?"
+            lines.append(f"- [{c}] {_s(d, 'title', 80)}")
         lines.append("")
-        if ctx["git_log_2h"]:
+        if ctx.get("git_log_2h"):
             lines.append("### Git log (过去 2 小时)")
             lines.append(ctx["git_log_2h"][:2000])
         lines.append("")

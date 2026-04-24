@@ -144,6 +144,24 @@ async def test_render_prompt_includes_sections(engine):
 
 
 @pytest.mark.asyncio
+async def test_render_prompt_handles_none_fields(engine):
+    """Regression: aiosqlite returns None for NULL cells. dict.get(k,'')
+    doesn't fall back when value IS None (only when key is missing),
+    so description=None caused 'NoneType not subscriptable' at 21:19 S1 day-0.
+    """
+    ctx = {
+        "exec_heartbeats": [{"activity": "coding", "description": None}],
+        "exec_deliverables": [{"type": None, "title": None}],
+        "own_discoveries": [{"category": None, "title": None}],
+        "git_log_2h": None,
+        "now": "2026-04-24T12:00:00+00:00",
+    }
+    # Must not raise
+    prompt = await engine._render_prompt(ctx)
+    assert "Context refresh" in prompt
+
+
+@pytest.mark.asyncio
 async def test_render_prompt_caps_size(engine):
     huge_log = "x" * 20_000
     ctx = {
