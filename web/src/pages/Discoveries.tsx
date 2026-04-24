@@ -6,7 +6,7 @@
  * and filter by category / priority / DH.
  */
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Lightbulb, AlertTriangle, TrendingUp, Database } from 'lucide-react';
+import { RefreshCw, Lightbulb, AlertTriangle, TrendingUp, Database, Search, X } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import DHFilter from '../components/DHFilter';
 
@@ -44,6 +44,7 @@ export default function DiscoveriesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [priorityFilter, setPriorityFilter] = useState<string | null>(null);
   const [dhFilter, setDhFilter] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
 
   const fetchDiscoveries = useCallback(async () => {
@@ -62,12 +63,19 @@ export default function DiscoveriesPage() {
 
   useEffect(() => { fetchDiscoveries(); }, [fetchDiscoveries]);
 
-  const categoryCounts: Record<string, number> = {};
-  discoveries.forEach((d) => { categoryCounts[d.category] = (categoryCounts[d.category] || 0) + 1; });
-  const priorityCounts: Record<string, number> = { high: 0, medium: 0, low: 0 };
-  discoveries.forEach((d) => { priorityCounts[d.priority] = (priorityCounts[d.priority] || 0) + 1; });
+  const q = searchQuery.trim().toLowerCase();
+  const filtered = q
+    ? discoveries.filter((d) =>
+        d.title.toLowerCase().includes(q)
+        || (d.content || '').toLowerCase().includes(q)
+      )
+    : discoveries;
 
-  const sorted = [...discoveries].sort((a, b) => {
+  const categoryCounts: Record<string, number> = {};
+  filtered.forEach((d) => { categoryCounts[d.category] = (categoryCounts[d.category] || 0) + 1; });
+  const priorityCounts: Record<string, number> = { high: 0, medium: 0, low: 0 };
+  filtered.forEach((d) => { priorityCounts[d.priority] = (priorityCounts[d.priority] || 0) + 1; });
+  const sorted = [...filtered].sort((a, b) => {
     const pa = PRIORITY_ORDER[a.priority] ?? 9;
     const pb = PRIORITY_ORDER[b.priority] ?? 9;
     if (pa !== pb) return pa - pb;
@@ -89,13 +97,37 @@ export default function DiscoveriesPage() {
 
       {/* Summary line */}
       <div className="text-xs flex gap-4 flex-wrap" style={{ color: 'var(--text-muted)' }}>
-        <span>Total: {discoveries.length}</span>
+        <span>Total: {filtered.length}{q && ` (of ${discoveries.length})`}</span>
         <span style={{ color: 'rgb(248,113,113)' }}>High: {priorityCounts.high}</span>
         <span style={{ color: 'rgb(251,191,36)' }}>Medium: {priorityCounts.medium}</span>
         <span>Low: {priorityCounts.low}</span>
         {Object.entries(categoryCounts).map(([c, n]) => (
           <span key={c}>{c}: {n}</span>
         ))}
+      </div>
+
+      {/* Search box */}
+      <div
+        className="flex items-center gap-2 px-2 py-1 rounded-lg border border-border"
+        style={{ background: 'var(--surface-alt)' }}
+      >
+        <Search size={14} style={{ color: 'var(--text-muted)' }} />
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search title or content..."
+          className="flex-1 bg-transparent outline-none text-sm"
+        />
+        {searchQuery && (
+          <button
+            onClick={() => setSearchQuery('')}
+            className="p-0.5 rounded hover:bg-accent"
+            aria-label="clear search"
+          >
+            <X size={12} />
+          </button>
+        )}
       </div>
 
       {/* Filters */}

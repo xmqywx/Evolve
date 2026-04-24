@@ -1343,11 +1343,11 @@ async def create_app(config_path: str) -> FastAPI:
     @app.post("/api/scheduled-tasks", dependencies=[Depends(verify_auth)])
     async def create_scheduled_task(body: dict):
         from myagent.cron_scheduler import CronScheduler
-        name = body.get("name", "").strip()
-        cron_expr = body.get("cron_expr", "").strip()
+        name = (body.get("name") or "").strip()
+        cron_expr = (body.get("cron_expr") or "").strip()
         if not name or not cron_expr:
             raise HTTPException(status_code=400, detail="name and cron_expr are required")
-        command = body.get("command", "").strip()
+        command = (body.get("command") or "").strip()
         if not command:
             raise HTTPException(status_code=400, detail="command is required (full script path)")
         # Validate cron expression

@@ -167,7 +167,7 @@ class KnowledgeEngine:
             return True
         existing = await self._db.get_knowledge(limit=100)
         for k in existing:
-            existing_lower = k.get("content", "").lower()
+            existing_lower = (k.get("content") or "").lower()
             if content_lower in existing_lower or existing_lower in content_lower:
                 return True
         return False

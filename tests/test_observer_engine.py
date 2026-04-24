@@ -224,3 +224,109 @@ async def test_crash_backoff_escalates(engine, registry):
         # First call asyncio.sleep is the backoff
         first_backoff = sleep_mock.call_args_list[0][0][0]
         assert first_backoff == 30
+
+
+# ---- _wait_for_cmux_ready branches ----
+
+
+@pytest.mark.asyncio
+async def test_wait_for_cmux_ready_happy_path(engine):
+    """capture-pane returns 'OpenAI Codex' → ready immediately."""
+    engine._running = True
+    engine._workspace_id = "FAKE-UUID"
+    with patch.object(
+        engine, "_cmux",
+        new=AsyncMock(return_value=(0, "╭─ OpenAI Codex v0.124.0 ─╮")),
+    ), patch("asyncio.sleep", new=AsyncMock()):
+        await engine._wait_for_cmux_ready(max_secs=5)
+    # Should return without raising
+
+
+@pytest.mark.asyncio
+async def test_wait_for_cmux_ready_trust_dialog_autoaccepts(engine):
+    """Trust dialog → auto-press '1' + Enter, then poll again."""
+    engine._running = True
+    engine._workspace_id = "FAKE-UUID"
+    # First call: trust dialog. Second call (after auto-accept): ready marker.
+    seq = [
+        (0, "Do you trust the contents of this directory?"),
+        (0, "Do you trust the contents of this directory?"),  # still showing
+        (0, "╭─ OpenAI Codex v0.124.0 ─╮"),
+    ]
+    call_count = [0]
+
+    async def fake_cmux(*args):
+        # send-key calls for "1" and Enter don't need to advance the capture seq
+        if args and args[0] == "send-key":
+            return (0, "")
+        idx = min(call_count[0], len(seq) - 1)
+        call_count[0] += 1
+        return seq[idx]
+
+    with patch.object(engine, "_cmux", new=fake_cmux), \
+         patch("asyncio.sleep", new=AsyncMock()):
+        await engine._wait_for_cmux_ready(max_secs=10)
+    # Should have sent "1" + Enter (2 send-key calls happened within the loop)
+    # No raise = pass
+
+
+@pytest.mark.asyncio
+async def test_wait_for_cmux_ready_workspace_dead_returns_early(engine):
+    """capture-pane returns non-zero exit → workspace dead, return early."""
+    engine._running = True
+    engine._workspace_id = "FAKE-UUID"
+    with patch.object(
+        engine, "_cmux", new=AsyncMock(return_value=(1, "not_found"))
+    ), patch("asyncio.sleep", new=AsyncMock()):
+        # Must not raise; must not loop forever
+        await engine._wait_for_cmux_ready(max_secs=10)
+
+
+@pytest.mark.asyncio
+async def test_wait_for_cmux_ready_no_workspace_id_returns(engine):
+    """No workspace_id → no-op."""
+    engine._running = True
+    engine._workspace_id = None
+    with patch.object(engine, "_cmux", new=AsyncMock()) as cmux_mock:
+        await engine._wait_for_cmux_ready(max_secs=5)
+    cmux_mock.assert_not_called()
+
+
+# ---- _cmux_workspace_alive (R20 runtime watchdog) ----
+
+
+@pytest.mark.asyncio
+async def test_cmux_workspace_alive_true_when_uuid_in_list(engine):
+    engine._workspace_id = "AB0D5167-1234-5678-9ABC-DEF012345678"
+    with patch.object(
+        engine, "_cmux",
+        new=AsyncMock(return_value=(0, "  AB0D5167-1234-5678-9ABC-DEF012345678  mycmux-observer")),
+    ):
+        assert await engine._cmux_workspace_alive() is True
+
+
+@pytest.mark.asyncio
+async def test_cmux_workspace_alive_false_when_missing(engine):
+    engine._workspace_id = "DEAD-UUID"
+    with patch.object(
+        engine, "_cmux",
+        new=AsyncMock(return_value=(0, "  OTHER-UUID  other-workspace")),
+    ):
+        assert await engine._cmux_workspace_alive() is False
+
+
+@pytest.mark.asyncio
+async def test_cmux_workspace_alive_true_on_cli_error(engine):
+    """Conservative: if cmux CLI fails, assume alive (avoid false restarts)."""
+    engine._workspace_id = "UUID"
+    with patch.object(
+        engine, "_cmux",
+        new=AsyncMock(return_value=(1, "cli error")),
+    ):
+        assert await engine._cmux_workspace_alive() is True
+
+
+@pytest.mark.asyncio
+async def test_cmux_workspace_alive_false_when_no_workspace_id(engine):
+    engine._workspace_id = None
+    assert await engine._cmux_workspace_alive() is False

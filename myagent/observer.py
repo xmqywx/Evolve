@@ -85,6 +85,20 @@ class ObserverEngine:
     async def _cmux(self, *args: str) -> tuple[int, str]:
         return await self._run_exec(CMUX_BIN, *args)
 
+    async def _cmux_workspace_alive(self) -> bool:
+        """Return True if our tracked workspace UUID still shows up in
+        `cmux list-workspaces`. Conservative: on CLI error return True
+        (can't tell, prefer false-alive over false-dead churn)."""
+        if not self._workspace_id:
+            return False
+        code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
+        if code != 0:
+            return True
+        for line in out.splitlines():
+            if line.strip().startswith(self._workspace_id):
+                return True
+        return False
+
     async def _cmux_find_by_name(self, name: str) -> str | None:
         code, out = await self._cmux("--id-format", "uuids", "list-workspaces")
         if code != 0:
@@ -186,12 +200,29 @@ class ObserverEngine:
         except Exception:
             logger.exception("observer initial prompt failed")
 
+        # Runtime watchdog: wake every WATCHDOG_INTERVAL seconds to check
+        # that the cmux workspace is still alive. If codex TUI exited
+        # between iterations (which happens if the model finishes / hits
+        # a fatal error), we re-spawn on detection rather than waiting
+        # the full heartbeat_interval.
+        WATCHDOG_INTERVAL = 60  # seconds
+        elapsed_since_iter = 0
         while self._running:
             try:
-                await asyncio.sleep(interval)
+                await asyncio.sleep(WATCHDOG_INTERVAL)
                 if not self._running:
                     break
-                await self._single_iteration()
+                # Workspace health probe
+                alive = await self._cmux_workspace_alive()
+                if not alive:
+                    logger.warning("observer: cmux workspace died mid-run; respawning")
+                    await self._handle_crash("workspace_died_midrun")
+                    elapsed_since_iter = 0
+                    continue
+                elapsed_since_iter += WATCHDOG_INTERVAL
+                if elapsed_since_iter >= interval:
+                    elapsed_since_iter = 0
+                    await self._single_iteration()
             except asyncio.CancelledError:
                 raise
             except CmuxError as e:
