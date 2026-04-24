@@ -824,6 +824,29 @@ async def create_app(config_path: str) -> FastAPI:
         await engine.stop()
         return {"status": "stopped"}
 
+    @app.get("/api/digital_humans/{dh_id}/persona", dependencies=[Depends(verify_auth)])
+    async def get_dh_persona(dh_id: str, request: Request):
+        """Return the composed persona markdown for a DH.
+
+        Concatenates identity.md + knowledge.md + principles.md from the
+        DH's persona dir. Shared files (about_ying/private) are NOT
+        included here — this endpoint is for showing the user what the
+        DH's role-specific prompt looks like.
+        """
+        reg = request.app.state.dh_registry
+        cfg = reg.get_config(dh_id)
+        if not cfg:
+            raise HTTPException(404, "unknown_dh")
+        base = Path(request.app.state.config.agent.persona_dir) / dh_id
+        out = {"digital_human_id": dh_id, "files": {}}
+        for name in ("identity.md", "knowledge.md", "principles.md"):
+            p = base / name
+            if p.exists():
+                out["files"][name] = p.read_text(encoding="utf-8")
+            else:
+                out["files"][name] = None
+        return out
+
     @app.get("/api/admin/dh_token/{dh_id}", dependencies=[Depends(verify_auth)])
     async def admin_dh_token(dh_id: str, request: Request):
         """DEBUG: reveal current token for a DH. Behind master auth only.

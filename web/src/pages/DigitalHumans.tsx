@@ -4,7 +4,10 @@
  * S1 multi-DH roadmap, Task 12.
  */
 import { useEffect, useState, useCallback } from 'react';
-import { RefreshCw, Power, RotateCcw, Activity } from 'lucide-react';
+import {
+  RefreshCw, Power, RotateCcw, Activity,
+  ChevronDown, ChevronRight, FileText, Shield,
+} from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
 interface DHState {
@@ -52,10 +55,26 @@ function dotColor(last: string | null, intervalSecs: number): string {
   return 'rgb(239,68,68)';                                 // red — stale
 }
 
+interface PersonaResp {
+  digital_human_id: string;
+  files: Record<string, string | null>;
+}
+
+const ENDPOINT_COLORS: Record<string, string> = {
+  heartbeat: 'rgb(96,165,250)',      // blue
+  deliverable: 'rgb(139,92,246)',    // purple
+  discovery: 'rgb(74,222,128)',      // green
+  workflow: 'rgb(251,191,36)',       // amber
+  upgrade: 'rgb(248,113,113)',       // red
+  review: 'rgb(45,212,191)',         // teal
+};
+
 export default function DigitalHumansPage() {
   const [dhs, setDhs] = useState<DHEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [personas, setPersonas] = useState<Record<string, PersonaResp>>({});
 
   const fetchDhs = useCallback(async () => {
     setLoading(true);
@@ -80,6 +99,22 @@ export default function DigitalHumansPage() {
       await fetchDhs();
     } finally {
       setActioning(null);
+    }
+  };
+
+  const toggleExpand = async (id: string) => {
+    setExpanded((prev) => {
+      const n = new Set(prev);
+      if (n.has(id)) n.delete(id); else n.add(id);
+      return n;
+    });
+    if (!personas[id]) {
+      try {
+        const p = await apiFetch<PersonaResp>(`/api/digital_humans/${id}/persona`);
+        setPersonas((m) => ({ ...m, [id]: p }));
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -131,13 +166,63 @@ export default function DigitalHumansPage() {
                 </span>
               </div>
 
-              <div className="text-xs space-y-1" style={{ color: 'var(--text-muted)' }}>
+              <div className="text-xs space-y-1.5" style={{ color: 'var(--text-muted)' }}>
                 <div>persona: <code>{dh.config.persona_dir}</code></div>
                 <div>cmux: <code>{dh.config.cmux_session}</code></div>
                 <div>heartbeat: every {Math.round(dh.config.heartbeat_interval_secs / 60)}m — last {timeAgo(dh.state.last_heartbeat_at)}</div>
-                <div>endpoints: {dh.config.endpoint_allowlist.join(', ') || '—'}</div>
+                <div className="flex flex-wrap gap-1 items-center">
+                  <Shield size={11} />
+                  <span>endpoints:</span>
+                  {dh.config.endpoint_allowlist.length === 0 && <span>—</span>}
+                  {dh.config.endpoint_allowlist.map((ep) => (
+                    <span
+                      key={ep}
+                      className="text-[10px] px-1.5 py-0.5 rounded"
+                      style={{
+                        background: (ENDPOINT_COLORS[ep] || 'rgb(113,113,122)') + '22',
+                        color: ENDPOINT_COLORS[ep] || 'rgb(113,113,122)',
+                      }}
+                    >
+                      {ep}
+                    </span>
+                  ))}
+                </div>
                 <div>restarts: {dh.state.restart_count}{dh.state.last_crash ? ` (last: ${dh.state.last_crash.slice(0, 80)})` : ''}</div>
               </div>
+
+              <button
+                onClick={() => toggleExpand(dh.id)}
+                className="flex items-center gap-1 text-xs hover:underline"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                {expanded.has(dh.id) ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+                <FileText size={12} />
+                persona preview
+              </button>
+
+              {expanded.has(dh.id) && personas[dh.id] && (
+                <div className="text-[11px] space-y-3 border-t border-border pt-3">
+                  {(['identity.md', 'knowledge.md', 'principles.md'] as const).map((fn) => {
+                    const content = personas[dh.id].files[fn];
+                    if (!content) return (
+                      <div key={fn} style={{ color: 'var(--text-muted)' }}>
+                        <strong>{fn}:</strong> <em>(missing)</em>
+                      </div>
+                    );
+                    return (
+                      <div key={fn}>
+                        <strong>{fn}:</strong>
+                        <pre
+                          className="mt-1 p-2 rounded overflow-x-auto whitespace-pre-wrap text-[10px]"
+                          style={{ background: 'var(--surface)', maxHeight: 200 }}
+                        >
+                          {content}
+                        </pre>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
 
               <div className="flex gap-2">
                 <button
