@@ -20,7 +20,7 @@ Status values:
 | `2026-03-15-knowledge-hub-design.md` | 2026-03-15 | Superseded | `docs/OVERVIEW.md` | Memory / knowledge hub. Absorbed into OVERVIEW § Memory / Knowledge Hub. |
 | `2026-04-24-stabilization-sprint-design.md` | 2026-04-24 | Completed | — | Documentation cleanup round (executed 2026-04-24). Prepared ground for multi-DH roadmap. |
 | `2026-04-24-multi-digital-human-roadmap.md` | 2026-04-24 | Active | — | Multi-DH roadmap: 3 stages (S1 Observer, S2 Planner+Conductor, S3 Evolver). Only S1 is designed in detail. |
-| `2026-04-24-s1-observer-digital-human.md` | 2026-04-24 | Active | — | Stage 1 detailed design: add Observer DH + land shared contracts (`digital_human_id`, per-DH persona/runtime dirs). |
+| `2026-04-24-s1-observer-digital-human.md` | 2026-04-24 | Active — code complete, live validation pending | — | Stage 1 detailed design: add Observer DH + land shared contracts (`digital_human_id`, per-DH persona/runtime dirs). Implementation 13/14 tasks done; 7-day validation window next. |
 
 ---
 
@@ -32,7 +32,8 @@ Implementation plans live under `docs/specs/plans/`:
 |------|-------------|--------|
 | `plans/2026-03-16-knowledge-hub-remaining.md` | `2026-03-15-knowledge-hub-design.md` | See file head |
 | `plans/2026-03-16-remaining-fixes.md` | V2 follow-up | See file head |
-| `plans/2026-04-24-stabilization-sprint.md` | `2026-04-24-stabilization-sprint-design.md` | Active (executing) |
+| `plans/2026-04-24-stabilization-sprint.md` | `2026-04-24-stabilization-sprint-design.md` | Completed |
+| `plans/2026-04-24-s1-observer.md` | `2026-04-24-s1-observer-digital-human.md` | Active — code complete, validation pending |
 
 ---
 

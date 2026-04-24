@@ -85,6 +85,42 @@ Remaining open follow-ups (tech debt, not Phase 5 gaps):
 
 ---
 
+## S1 Observer — Multi-DH roadmap (2026-04-24)
+
+**Status: code complete (13/14 tasks); 7-day validation pending**
+
+Evidence per task:
+| # | Task | Status | Commit | Tests |
+|---|------|--------|--------|-------|
+| T1 | Migration 001 (digital_human_id + dedup table) | ✅ | `fc03498` | 5/5 |
+| T2 | DB helpers DH-aware + dedup helpers | ✅ | `5bab7be` | 16/16 |
+| T3 | Persona split + ContextBuilder DH-aware | ✅ | `7efa9ea` | 7/7 regressing clean |
+| T4 | DigitalHumanRegistry module | ✅ | `a3090d9` | 13/13 |
+| T5 | Config + lifecycle API | ✅ | `a9980ad` | 7/7 |
+| T6 | Per-DH auth + endpoint allowlist middleware | ✅ | `27a294a` | 12/12 |
+| T7 | Dedup TTL purge cron (23:00 daily) | ✅ | `2ee296b` | smoke ok |
+| T8 | Observer persona files | ✅ | `dc17d46` | persona loads 2893 chars |
+| T9 | ObserverEngine module | ✅ | `e132fe7` | 6/6 |
+| T10 | ObserverEngine wired in lifespan + admin dh_token endpoint | ✅ | `ed9afd0` | lifecycle ok |
+| T11 | DHFilter component + list endpoints accept ?digital_human_id= | ✅ | `405e724` | 224 suite pass |
+| T12/T13 | /digital_humans page + Dashboard strip + sidebar | ✅ | `61435e9` | tsc clean |
+| T14 | Validation scaffolding (daily + exit scripts + rating sink) | ✅ | _this commit_ | — |
+| T14-live | **7-day live validation window** | ⬜ | — | **pending run** |
+
+Full test suite at completion of code: **224 pass / 2 pre-existing failures / 19 skipped**.
+
+### To start live validation
+
+1. Set `digital_humans.observer.enabled: true` in `config.yaml`
+2. `launchctl kickstart -k gui/$UID/com.ying.myagent`
+3. Verify both cmux sessions exist: `cmux list-workspaces | grep mycmux`
+4. Day 1–7: `bash scripts/s1_daily_check.sh >> docs/s1-daily-log.md` once per day
+5. Day 7: `bash scripts/s1_exit_check.sh`
+6. Fill `docs/observer-rating-s1.md` with 20 random discoveries + rate
+7. If all exit criteria pass → brainstorm S2 (Planner + Conductor)
+
+---
+
 ## Cross-phase residuals
 
 ### tmux residuals (audit result — Task 9, 2026-04-24)
