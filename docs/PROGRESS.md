@@ -90,14 +90,47 @@ Next:
 
 ## Cross-phase residuals
 
-### tmux residuals (pre-audit count from Task 9 step 9.1)
+### tmux residuals (audit result — Task 9, 2026-04-24)
 
-- **Docs layer**: 47 hits across `*.md` files (>20 threshold → stop-loss applies, see Task 9)
-- **Code layer**: 99 hits across `*.py` / `*.ts` / `*.tsx` / `*.js` files
-  - Current policy: code residuals are catalogued but not touched this round (per spec §2.2 non-goals)
-  - Catalog will be appended below after Task 9 runs
+**Summary**: docs layer 54 hits, code layer 99 hits. Stop-loss rule triggered (docs >20) — sites catalogued below rather than annotated one-by-one.
 
-(Catalog appended by Task 9 on completion.)
+#### Docs layer breakdown (`rg -c "tmux" -g '*.md'`)
+
+| File | Hits | Classification | Action |
+|------|------|----------------|--------|
+| `docs/specs/plans/2026-04-24-stabilization-sprint.md` | 23 | Meta — this sprint discussing tmux migration | None, expected |
+| `docs/specs/2026-04-24-stabilization-sprint-design.md` | 7 | Meta — this sprint's spec | None, expected |
+| `README.md` | 5 | Project readme — may still describe tmux setup | **Needs update (next round)** |
+| `README_CN.md` | 5 | Chinese readme | **Needs update (next round)** |
+| `docs/specs/2026-03-13-myagent-v2-design.md` | 5 | Superseded v2 spec; banner notes legacy | None, banner sufficient |
+| `docs/PROGRESS.md` | 2 | This file's catalog | None, expected |
+| `docs/OVERVIEW.md` | 2 | Mentions "formerly tmux" explicitly | None, contextual |
+| `docs/specs/SPEC_LEDGER.md` | 1 | Ledger note on cmux migration | None, contextual |
+| `docs/specs/2026-03-11-chat-survival-system-design.md` | 1 | Superseded; banner says "tmux references are legacy" | None, banner sufficient |
+| `docs/plans/2026-03-13-phase1-tailwind-migration.md` | 1 | Old plan, historical | None |
+| `docs/ARCHITECTURE.md` | 1 | Mentions "formerly tmux" explicitly | None, contextual |
+| `CLAUDE.md` | 1 | Mentions "formerly tmux" explicitly | None, contextual |
+
+**Net actionable docs residuals**: `README.md` + `README_CN.md` (10 hits total). Deferred to a follow-up "docs polish" round.
+
+#### Code layer breakdown (`rg -c "tmux" -g '*.py' -g '*.ts' -g '*.tsx' -g '*.js'`)
+
+| File | Hits | Classification |
+|------|------|----------------|
+| `myagent/server.py` | 61 | Active code — migration partial, still references tmux in some paths |
+| `tests/test_survival.py` | 31 | Legacy tmux-era tests — commit `2da6592` says "skip pending cmux rewrite" |
+| `myagent/ai_provider.py` | 4 | Provider abstraction references |
+| `web/dist/assets/index-B5hKc0s6.js` | 2 | Built artifact — will regenerate on next build |
+| `web/src/pages/Chat.tsx` | 1 | Frontend reference |
+
+**Net actionable code residuals**: ~96 hits (excluding built JS). This is the scope of a future tmux→cmux code-migration round, not this stabilization sprint. Per spec §2.2, code is not touched here.
+
+#### Recommended follow-up tasks (not in this sprint)
+
+1. **README rewrite** — align `README.md` + `README_CN.md` with cmux/codex/tailwind. Est. 30 min.
+2. **`myagent/server.py` tmux audit** — identify whether 61 hits are legacy comments, dead code, or actively-used paths. Grep-and-classify, 1–2 hours.
+3. **`tests/test_survival.py` rewrite** — cmux equivalent of legacy tmux tests. Est. 2–4 hours.
+4. **`myagent/ai_provider.py` + `Chat.tsx` cleanup** — small surface, likely 15 min each.
 
 ---
 
