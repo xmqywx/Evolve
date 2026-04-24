@@ -40,10 +40,22 @@ All 6 `agent_*` tables (`agent_heartbeats`, `agent_deliverables`, `agent_discove
 ALTER TABLE agent_<kind> ADD COLUMN digital_human_id TEXT NOT NULL DEFAULT 'executor';
 ```
 
+Plus a dedup-support table (required for loop prevention):
+
+```sql
+CREATE TABLE IF NOT EXISTS agent_discovery_dedup (
+    dedup_key TEXT PRIMARY KEY,
+    first_seen_at TIMESTAMP NOT NULL,
+    hit_count INTEGER DEFAULT 1
+);
+```
+
+Plus per-DH filter indexes on `(digital_human_id, created_at DESC)` for `agent_heartbeats` / `agent_deliverables` / `agent_discoveries`.
+
 - Every row is tagged with the originating DH's ID.
-- Historical rows are backfilled to `'executor'` (the survival engine's ID).
-- DB helper methods (`db.py`) accept a `digital_human_id` parameter; all existing callers pass `'executor'`.
-- API endpoints either accept `digital_human_id` in the body or infer it from an auth token mapping (S1 will use body parameter; auth mapping deferred).
+- Historical rows read as `'executor'` via SQLite's DEFAULT-on-ADD-COLUMN fast path (no table rewrite).
+- DB helper methods (`db.py`) accept a `digital_human_id` parameter; existing callers default to `'executor'`.
+- **API endpoints derive `digital_human_id` from a per-DH auth token, NOT from the request body.** Body-declared identity would be trivially spoofable. Tokens are minted at DH start, injected into the cmux session's env, and validated by middleware. S1 implements this; it is not deferred.
 
 ### 3.2 Persona layer layout
 
@@ -63,7 +75,9 @@ persona/
 
 ### 3.3 Skill layer
 
-`agents/*.md` (conceptually "skills") remain a shared library. Each DH's `identity.md` declares a **whitelist** of skill names it may call. The server enforces: when a DH requests a skill not on its whitelist, the call is rejected with a clear error. (This is the runtime half of the three-layer architecture ADR.)
+`agents/*.md` (conceptually "skills") remain a shared library. Each DH's `config.yaml → digital_humans.{id}.skill_whitelist` declares permitted skill names (authoritative; identity.md mirrors for LLM-readable form only).
+
+**S1 scope**: whitelist enforcement is **summary-filtering only** — the ContextBuilder for each DH only surfaces whitelisted skills in the prompt. Observer's whitelist is empty, so Observer sees no skill library. **Runtime skill-call interception** (where a DH programmatically tries to invoke a disallowed skill and the server rejects) is deferred to **S2**, where Planner/Conductor will actually coordinate cross-DH skill calls. The runtime gate is not needed when there is no tool surface.
 
 ### 3.4 Digital Human runtime layer
 
@@ -76,6 +90,12 @@ digital_humans/
 ```
 
 `state.json` is read/written by the server on DH lifecycle transitions. Crash recovery consults it to restore session IDs.
+
+Authoritative location for config vs runtime data:
+- **Config** (static; `config.yaml → digital_humans.{id}`): `persona_dir`, `cmux_session`, `provider`, `heartbeat_interval_secs`, `skill_whitelist`, `endpoint_allowlist`, `enabled`
+- **Runtime state** (`digital_humans/{id}/state.json`): `started_at`, `last_heartbeat_at`, `restart_count`, `last_crash`, `auth_token_hash`
+
+A DH's `state.json` never duplicates config values — it only holds runtime telemetry. The roles-boundary ADR bullet referencing "list of allowed skills in digital_humans/<id>/" is superseded by this rule: **skill_whitelist lives in config.yaml, not state.json**.
 
 ### 3.5 Digital Human lifecycle API
 

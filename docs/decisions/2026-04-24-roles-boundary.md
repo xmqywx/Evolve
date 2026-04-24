@@ -33,11 +33,11 @@ MyAgent has **three distinct role-related layers**:
 - **Runtime role**: called on demand for sub-tasks; no persistent state between calls
 
 ### Layer 3: Digital Human Runtime (long-running instance)
-- **Path**: `digital_humans/<id>/` — **NOT created this round; placeholder**
-- **Content** (future): reference to a persona, list of allowed skills, cmux session ID, state file
+- **Path**: `digital_humans/<id>/` — **NOT created this round; placeholder** (created in S1 per multi-DH roadmap)
+- **Content**: only runtime telemetry (`state.json`: `cmux_session`, `started_at`, `last_heartbeat_at`, `restart_count`, `last_crash`, `auth_token_hash`). **Skill whitelist and persona_dir are NOT here** — they are config, stored in `config.yaml → digital_humans.{id}`. This ADR's original Layer-3 bullet mentioning "list of allowed skills in digital_humans/" was refined by the multi-DH roadmap (2026-04-24): runtime dir holds only telemetry; static config stays in config.yaml.
 - **Nature**: A long-running role instance with its own context window, heartbeat, and event stream
 - **Cardinality**: N digital humans, each distinct
-- **Runtime role**: the actual executor. Writes to the Self-Report bus tagged with its ID.
+- **Runtime role**: the actual executor. Writes to the Self-Report bus tagged with its ID (derived from per-DH auth token, not request body).
 
 ## Composition rule
 
