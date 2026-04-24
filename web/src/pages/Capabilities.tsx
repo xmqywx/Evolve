@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   RefreshCw,
   Globe,
@@ -15,6 +16,7 @@ import {
   Activity,
   Gauge,
   Clock,
+  Info,
 } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 import type { AgentUpgrade } from '../utils/types';
@@ -174,6 +176,19 @@ export default function CapabilitiesPage() {
 
   return (
     <div className="space-y-6">
+      <div
+        className="flex items-start gap-2 border border-border rounded-lg p-3 text-xs"
+        style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}
+      >
+        <Info size={14} className="mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <div>{t('capabilities.globalBanner')}</div>
+          <Link to="/digital_humans" className="text-[11px] hover:underline" style={{ color: 'var(--accent)' }}>
+            {t('capabilities.managePerDH')} →
+          </Link>
+        </div>
+      </div>
+
       <h1 className="text-xl font-semibold">{t('capabilities.title')}</h1>
 
       {!configLoaded && (

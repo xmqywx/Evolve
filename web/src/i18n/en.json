@@ -84,6 +84,8 @@
   },
   "identity": {
     "title": "Identity Prompt",
+    "supersededBanner": "This page is superseded by the Identity tab on each Digital Human's detail page. It's kept for quick cross-DH browsing.",
+    "browseFromDetail": "Open Digital Humans",
     "subtitle": "Per-DH identity/knowledge/principles. Picked up at next context refresh (every 30 min) — no restart needed.",
     "placeholder": "(file is empty)",
     "chars": "chars",
@@ -273,6 +275,8 @@
   },
   "capabilities": {
     "title": "Capabilities",
+    "globalBanner": "This page sets global defaults for all digital humans. Per-DH overrides live in each DH's Capabilities tab on its detail page.",
+    "managePerDH": "Manage per-DH",
     "capabilityToggles": "Capability Toggles",
     "behaviorSettings": "Behavior Settings",
     "upgradeProposals": "Upgrade Proposals",
@@ -503,6 +507,8 @@
   },
   "prompt": {
     "title": "Prompt Config",
+    "executorBanner": "This page edits the Executor DH's survival-prompt template. Other DHs edit their own prompts on their detail page.",
+    "viewExecutor": "View Executor detail",
     "subtitle": "Edit Survival Engine's Identity Prompt template",
     "linesCount": "{{count}} lines",
     "editMode": "Edit mode",

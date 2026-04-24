@@ -214,3 +214,38 @@ launchctl kickstart -k "gui/$UID/com.ying.myagent"
 ---
 
 _Last updated: 2026-04-24 (stabilization sprint step 4)._
+
+---
+
+## DH Sovereignty (2026-04-25) — code-complete
+
+Spec: `docs/specs/2026-04-25-dh-sovereignty-design.md`
+Phases A+B shipped; C (legacy banners) + D (this entry) close the loop.
+
+Backend:
+- Migration 002: agent_config.digital_human_id nullable column + composite UNIQUE(digital_human_id, key)
+- Config schema: DigitalHumanEntry gains model/prompt_template_file/mcp_servers; AgentConfig gains mcp_pool
+- yaml_writer.py: atomic config.yaml rewriter with 10-backup rotation
+- db.py: get_agent_config/set_agent_config gain digital_human_id (NULL = global fallback)
+- dh_config.py: resolve(cfg, dh_id) → ResolvedDHConfig; augment_codex_cmd() for -c model + MCP flags
+- server.py: 12 new endpoints (GET/PUT/DELETE config, GET/PUT skills/mcp/model/prompt, GET mcp_pool)
+- observer.py + survival.py: on start(), resolve per-DH config + augment codex cmd
+
+Frontend:
+- DigitalHumanDetail.tsx tabbed page at /digital_humans/:id
+- 7 tab components (Overview/Identity/Prompt/Skills/MCP/Model/Capabilities)
+- Legacy /capabilities /prompt /identity_prompts pages gain scope banners
+- 4 new vitest files (DigitalHumanDetail + 3 representative tabs)
+
+Test totals:
+- Backend: 302 passed / 19 skipped
+- Frontend: 14 passed
+- Build: clean
+
+Known limitations:
+- survival.py's prompt_template_file not yet honored (current prompt is
+  DB-template with variable substitution; swapping to file would regress)
+- MCP -c flag syntax carries a TODO-verify until we have a real mcp_pool
+  entry to test against
+- Observer may still self-restart on mid-run codex exit (watchdog
+  added in R20 catches it but doesn't prevent)

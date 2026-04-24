@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import {
   Save,
   RefreshCw,
@@ -111,6 +112,18 @@ export default function PromptEditorPage() {
 
   return (
     <div className="flex flex-col h-full" style={{ maxHeight: 'calc(100vh - 2rem)' }}>
+      <div
+        className="flex items-start gap-2 border border-border rounded-lg p-3 text-xs shrink-0 mb-3"
+        style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}
+      >
+        <Info size={14} className="mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <div>{t('prompt.executorBanner')}</div>
+          <Link to="/digital_humans/executor" className="text-[11px] hover:underline" style={{ color: 'var(--accent)' }}>
+            {t('prompt.viewExecutor')} →
+          </Link>
+        </div>
+      </div>
       {/* Header */}
       <div className="flex items-center justify-between shrink-0 mb-3">
         <div>

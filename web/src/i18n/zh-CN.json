@@ -84,6 +84,8 @@
   },
   "identity": {
     "title": "身份 Prompt",
+    "supersededBanner": "本页已被各数字人详情页的 Identity 标签替代，保留用于跨数字人快速浏览。",
+    "browseFromDetail": "打开数字人列表",
     "subtitle": "每个数字人的 identity / knowledge / principles，每 30 分钟下一轮 context refresh 时生效，无需重启",
     "placeholder": "（此文件为空）",
     "chars": "字符",
@@ -273,6 +275,8 @@
   },
   "capabilities": {
     "title": "能力",
+    "globalBanner": "本页设置所有数字人的全局默认值。各数字人自己的覆盖在其详情页 Capabilities 标签下。",
+    "managePerDH": "管理每个数字人",
     "capabilityToggles": "能力开关",
     "behaviorSettings": "行为调节",
     "upgradeProposals": "升级提议",
@@ -503,6 +507,8 @@
   },
   "prompt": {
     "title": "Prompt 配置",
+    "executorBanner": "本页编辑 Executor 数字人的生存引擎 prompt 模板。其他数字人在其详情页的 Prompt 标签下编辑自己的 prompt。",
+    "viewExecutor": "查看 Executor 详情",
     "subtitle": "编辑生存引擎的 Identity Prompt 模板",
     "linesCount": "{{count}} 行",
     "editMode": "编辑模式",

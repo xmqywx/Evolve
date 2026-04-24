@@ -3,9 +3,13 @@
  * Covers DH tab switch, file tab switch, dirty state, save flow.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render as rtlRender, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import IdentityPrompts from '../IdentityPrompts';
 import * as api from '../../utils/api';
+
+const render = (ui: React.ReactElement) =>
+  rtlRender(<MemoryRouter>{ui}</MemoryRouter>);
 
 // Minimal i18next mock so useTranslation doesn't need a real provider
 vi.mock('react-i18next', () => ({

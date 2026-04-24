@@ -9,7 +9,8 @@
  */
 import { useEffect, useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { RefreshCw, Save, Check, AlertCircle } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { RefreshCw, Save, Check, AlertCircle, Info } from 'lucide-react';
 import { apiFetch } from '../utils/api';
 
 interface DHEntry {
@@ -104,6 +105,19 @@ export default function IdentityPromptsPage() {
 
   return (
     <div className="p-6 space-y-4">
+      <div
+        className="flex items-start gap-2 border border-border rounded-lg p-3 text-xs"
+        style={{ background: 'var(--surface-alt)', color: 'var(--text-muted)' }}
+      >
+        <Info size={14} className="mt-0.5 shrink-0" />
+        <div className="flex-1">
+          <div>{t('identity.supersededBanner')}</div>
+          <Link to="/digital_humans" className="text-[11px] hover:underline" style={{ color: 'var(--accent)' }}>
+            {t('identity.browseFromDetail')} →
+          </Link>
+        </div>
+      </div>
+
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <h1 className="text-xl font-semibold">{t('identity.title')}</h1>
